@@ -1,0 +1,23 @@
+import { getProfile } from "@/lib/supabase/server";
+import { getLinkOptions } from "@/lib/actions/documents";
+import { Header } from "@/components/layout/header";
+import { DocumentForm } from "@/components/documents/document-form";
+
+export default async function NewDocumentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ai?: string }>;
+}) {
+  const profile = await getProfile();
+  const params = await searchParams;
+  const links = await getLinkOptions();
+
+  return (
+    <>
+      <Header profile={profile!} title="New Document" />
+      <main className="flex-1 overflow-y-auto p-6">
+        <DocumentForm links={links} aiMode={params.ai === "1"} />
+      </main>
+    </>
+  );
+}

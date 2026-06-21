@@ -1,0 +1,43 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "seed:knowledge": "node scripts/seed-knowledge-vault.mjs",
+    "generate:logo": "node scripts/generate-logo.mjs",
+    "qa:office:setup": "python3 -m venv scripts/office/.venv && scripts/office/.venv/bin/pip install -r scripts/office/requirements.txt",
+    "qa:office": "node scripts/qa-office-export.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "@aws-sdk/client-s3": "^3.1073.0",
+    "@aws-sdk/s3-request-presigner": "^3.1073.0",
+    "@react-pdf/renderer": "^4.5.1",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.2",
+    "clsx": "^2.1.1",
+    "docx": "^9.7.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^1.21.0",
+    "next": "16.2.9",
+    "pptxgenjs": "^4.0.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "sharp": "^0.35.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
