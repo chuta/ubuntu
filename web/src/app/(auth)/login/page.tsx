@@ -44,13 +44,13 @@ export default function LoginPage() {
         <div className="max-w-md">
           <h1 className="text-3xl font-bold leading-tight">Ubuntu GrowthOS</h1>
           <p className="mt-4 text-lg text-white/80">
-            Commercial Intelligence &amp; Growth Operations Platform
+            Commercial Intelligence, Deals, &amp; Growth Operations Platform
           </p>
           <p className="mt-6 text-sm text-white/60">
             Real value. Digital access. Shared opportunity.
           </p>
         </div>
-        <p className="text-xs text-white/40">Week 1 — Foundation &amp; Schema</p>
+        <p className="text-xs text-white/40">Built by Chimezie Chuta - Commercial Director of Sales and Partnerships</p>
       </div>
 
       {/* Form panel — vertically centered */}
