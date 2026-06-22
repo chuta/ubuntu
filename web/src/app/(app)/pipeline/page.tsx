@@ -17,6 +17,9 @@ export default async function PipelinePage({
     segment?: string;
     revenue_engine?: string;
     search?: string;
+    has_risk?: string;
+    risk_flag?: string;
+    risk_severity?: string;
   }>;
 }) {
   const profile = await getProfile();

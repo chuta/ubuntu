@@ -4,8 +4,9 @@ import Link from "next/link";
 import { Badge, priorityVariant } from "@/components/ui/badge";
 import { labelFor, DEAL_PRIORITIES, weightedValue } from "@/lib/constants/deals";
 import { formatCurrency } from "@/lib/utils";
-import type { Deal } from "@/types/pipeline";
 import { Building2, GripVertical } from "lucide-react";
+import type { Deal } from "@/types/pipeline";
+import { CommercialRiskBadges } from "@/components/pipeline/deal-commercial-risks-panel";
 
 export function DealCard({ deal, draggable }: { deal: Deal; draggable?: boolean }) {
   const org = Array.isArray(deal.organization) ? deal.organization[0] : deal.organization;
@@ -39,6 +40,9 @@ export function DealCard({ deal, draggable }: { deal: Deal; draggable?: boolean 
           </Badge>
         </div>
       )}
+      <div className="mt-2">
+        <CommercialRiskBadges deal={deal} compact />
+      </div>
       {deal.expected_close_date && (
         <p className="mt-2 text-xs text-gray-400">
           Close: {new Date(deal.expected_close_date).toLocaleDateString()}

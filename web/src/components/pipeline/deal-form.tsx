@@ -16,7 +16,12 @@ import {
   REVENUE_ENGINES,
   defaultProbability,
 } from "@/lib/constants/deals";
-import type { Deal, Product } from "@/types/pipeline";
+import {
+  CommercialRiskFields,
+  parseCommercialRiskFormData,
+} from "@/components/pipeline/commercial-risk-fields";
+import { validateCommercialRiskInput } from "@/lib/constants/commercial-risks";
+import type { CommercialRiskType, Deal, Product } from "@/types/pipeline";
 
 type OrgOption = { id: string; name: string; segment: string };
 
@@ -24,10 +29,12 @@ export function DealForm({
   organizations,
   products,
   deal,
+  riskSuggestions = [],
 }: {
   organizations: OrgOption[];
   products: Product[];
   deal?: Deal;
+  riskSuggestions?: CommercialRiskType[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +49,17 @@ export function DealForm({
     const fd = new FormData(e.currentTarget);
     const value = fd.get("estimated_value") as string;
     const prob = fd.get("probability") as string;
+    const riskData = parseCommercialRiskFormData(fd);
+    const riskValidation = validateCommercialRiskInput(
+      riskData.commercial_risk_flags,
+      riskData.commercial_risk_severity ?? null,
+      riskData.commercial_risk_review_date
+    );
+    if (riskValidation) {
+      setError(riskValidation);
+      setLoading(false);
+      return;
+    }
 
     const data: DealFormData = {
       name: fd.get("name") as string,
@@ -58,6 +76,7 @@ export function DealForm({
       next_step: (fd.get("next_step") as string) || undefined,
       next_step_date: (fd.get("next_step_date") as string) || undefined,
       description: (fd.get("description") as string) || undefined,
+      ...riskData,
     };
 
     try {
@@ -183,6 +202,8 @@ export function DealForm({
           </FormField>
         </div>
       </section>
+
+      <CommercialRiskFields deal={deal} suggestions={riskSuggestions} />
 
       <div className="flex gap-3">
         <Button type="submit" disabled={loading}>

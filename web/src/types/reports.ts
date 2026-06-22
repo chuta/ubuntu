@@ -56,6 +56,22 @@ export type ExecutiveReportData = {
     totalBestCase: number;
   };
   b2c: B2cCampaignMetric | null;
+  commercialRisks: {
+    flaggedDeals: number;
+    byCategory: Record<string, number>;
+    bySeverity: Record<string, number>;
+    overdueReviews: number;
+    criticalCount: number;
+    topAtRiskDeals: {
+      id: string;
+      name: string;
+      stage: string;
+      estimated_value: number | null;
+      flags: string[];
+      severity: string | null;
+      review_date: string | null;
+    }[];
+  };
 };
 
 export type B2cCampaignMetric = {

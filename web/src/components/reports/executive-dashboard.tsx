@@ -12,6 +12,7 @@ import {
 import { B2G_PHASES, phaseLabel } from "@/lib/constants/tokenization";
 import { priorityVariant } from "@/components/ui/badge";
 import type { ExecutiveReportData } from "@/types/reports";
+import { CommercialRiskMonitor } from "@/components/reports/commercial-risk-monitor";
 import {
   GitBranch,
   Landmark,
@@ -199,6 +200,8 @@ export function ExecutiveDashboard({
           </CardContent>
         </Card>
       </div>
+
+      <CommercialRiskMonitor data={data.commercialRisks} />
 
       <Card className="mt-6">
         <CardHeader>

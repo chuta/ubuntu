@@ -11,7 +11,10 @@ import type {
   RevenueEngine,
   DealSource,
   DealPriority,
+  CommercialRiskType,
+  CommercialRiskSeverity,
 } from "@/types/pipeline";
+import { validateCommercialRiskInput } from "@/lib/constants/commercial-risks";
 import { revalidatePath } from "next/cache";
 import { SELECT } from "@/lib/supabase/embeds";
 
@@ -30,6 +33,11 @@ export type DealFormData = {
   next_step?: string;
   next_step_date?: string;
   description?: string;
+  commercial_risk_flags?: CommercialRiskType[];
+  commercial_risk_severity?: CommercialRiskSeverity | null;
+  commercial_risk_notes?: string;
+  commercial_risk_mitigation?: string;
+  commercial_risk_review_date?: string;
 };
 
 export type DealFilters = {
@@ -37,7 +45,48 @@ export type DealFilters = {
   segment?: string;
   revenue_engine?: string;
   search?: string;
+  has_risk?: string;
+  risk_flag?: string;
+  risk_severity?: string;
 };
+
+function buildCommercialRiskFields(
+  data: Pick<
+    DealFormData,
+    | "commercial_risk_flags"
+    | "commercial_risk_severity"
+    | "commercial_risk_notes"
+    | "commercial_risk_mitigation"
+    | "commercial_risk_review_date"
+  >,
+  existing?: Deal | null
+) {
+  const flags = data.commercial_risk_flags ?? [];
+  const validationError = validateCommercialRiskInput(
+    flags,
+    flags.length ? data.commercial_risk_severity : null,
+    data.commercial_risk_review_date
+  );
+  if (validationError) throw new Error(validationError);
+
+  const fields = {
+    commercial_risk_flags: flags,
+    commercial_risk_severity: flags.length ? data.commercial_risk_severity ?? null : null,
+    commercial_risk_notes: flags.length ? data.commercial_risk_notes || null : null,
+    commercial_risk_mitigation: flags.length ? data.commercial_risk_mitigation || null : null,
+    commercial_risk_review_date: flags.length ? data.commercial_risk_review_date || null : null,
+  };
+
+  const changed =
+    !existing ||
+    JSON.stringify(existing.commercial_risk_flags ?? []) !== JSON.stringify(fields.commercial_risk_flags) ||
+    existing.commercial_risk_severity !== fields.commercial_risk_severity ||
+    existing.commercial_risk_notes !== fields.commercial_risk_notes ||
+    existing.commercial_risk_mitigation !== fields.commercial_risk_mitigation ||
+    existing.commercial_risk_review_date !== fields.commercial_risk_review_date;
+
+  return { fields, changed };
+}
 
 export async function getProducts(): Promise<Product[]> {
   const supabase = await createClient();
@@ -47,6 +96,18 @@ export async function getProducts(): Promise<Product[]> {
     .eq("is_active", true)
     .order("name");
   return (data ?? []) as Product[];
+}
+
+function normalizeDeal(deal: Deal): Deal {
+  return {
+    ...deal,
+    commercial_risk_flags: deal.commercial_risk_flags ?? [],
+    commercial_risk_severity: deal.commercial_risk_severity ?? null,
+    commercial_risk_notes: deal.commercial_risk_notes ?? null,
+    commercial_risk_mitigation: deal.commercial_risk_mitigation ?? null,
+    commercial_risk_review_date: deal.commercial_risk_review_date ?? null,
+    commercial_risk_updated_at: deal.commercial_risk_updated_at ?? null,
+  };
 }
 
 export async function getDeals(filters?: DealFilters): Promise<Deal[]> {
@@ -62,10 +123,22 @@ export async function getDeals(filters?: DealFilters): Promise<Deal[]> {
   if (filters?.segment) query = query.eq("segment", filters.segment);
   if (filters?.revenue_engine) query = query.eq("revenue_engine", filters.revenue_engine);
   if (filters?.search) query = query.ilike("name", `%${filters.search}%`);
+  if (filters?.risk_flag) query = query.contains("commercial_risk_flags", [filters.risk_flag]);
+  if (filters?.risk_severity === "HIGH_PLUS") {
+    query = query.in("commercial_risk_severity", ["HIGH", "CRITICAL"]);
+  } else if (filters?.risk_severity) {
+    query = query.eq("commercial_risk_severity", filters.risk_severity);
+  }
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []) as Deal[];
+
+  let deals = (data ?? []) as Deal[];
+  if (filters?.has_risk === "1") {
+    deals = deals.filter((d) => (d.commercial_risk_flags?.length ?? 0) > 0);
+  }
+
+  return deals.map(normalizeDeal);
 }
 
 export async function getDeal(id: string): Promise<Deal | null> {
@@ -78,7 +151,7 @@ export async function getDeal(id: string): Promise<Deal | null> {
     .single();
 
   if (error) return null;
-  return data as Deal;
+  return normalizeDeal(data as Deal);
 }
 
 export async function getPipelineMetrics(): Promise<PipelineMetrics> {
@@ -142,6 +215,7 @@ export async function createDeal(data: DealFormData) {
   if (!profile) throw new Error("Not authenticated");
 
   const probability = data.probability ?? defaultProbability(data.stage);
+  const { fields: riskFields } = buildCommercialRiskFields(data);
 
   const { data: deal, error } = await supabase
     .from("deals")
@@ -162,6 +236,10 @@ export async function createDeal(data: DealFormData) {
       next_step: data.next_step || null,
       next_step_date: data.next_step_date || null,
       description: data.description || null,
+      ...riskFields,
+      commercial_risk_updated_at: riskFields.commercial_risk_flags.length
+        ? new Date().toISOString()
+        : null,
     })
     .select("id, stage")
     .single();
@@ -186,6 +264,7 @@ export async function updateDeal(id: string, data: DealFormData) {
 
   const stageChanged = existing.stage !== data.stage;
   const probability = data.probability ?? (stageChanged ? defaultProbability(data.stage) : existing.probability ?? defaultProbability(data.stage));
+  const { fields: riskFields, changed: riskChanged } = buildCommercialRiskFields(data, existing);
 
   const updates: Record<string, unknown> = {
     name: data.name,
@@ -202,7 +281,12 @@ export async function updateDeal(id: string, data: DealFormData) {
     next_step: data.next_step || null,
     next_step_date: data.next_step_date || null,
     description: data.description || null,
+    ...riskFields,
   };
+
+  if (riskChanged) {
+    updates.commercial_risk_updated_at = new Date().toISOString();
+  }
 
   if (data.stage === "WON" && !existing.actual_close_date) {
     updates.actual_close_date = new Date().toISOString().slice(0, 10);

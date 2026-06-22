@@ -24,7 +24,7 @@ All markdown planning documents in this repository are **derived artifacts**. Th
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    DERIVED PLANNING DOCUMENTS                    │
-│  Knowledge Base │ COM │ FSB │ ERM │ Website Ref │ PRD             │
+│  Knowledge Base │ COM │ FSB │ ERM │ Website Ref │ PRD │ Risk Flags Spec │
 └────────────────────────────┬────────────────────────────────────┘
                              │ implements
                              ▼
@@ -44,6 +44,7 @@ All markdown planning documents in this repository are **derived artifacts**. Th
 | `UBUNTU GROWTHOS DATA ARCHITECTURE & ERM v1.0.md` | Entity model |
 | `UBUNTU TRIBE WEBSITE REFERENCE - utribe.one.md` | Public brand and messaging |
 | `UBUNTU GROWTHOS PRD v1.0.md` | Build specification |
+| `UBUNTU GROWTHOS COMMERCIAL RISK FLAGS SPEC v1.md` | COM §6 deal-level risk flags + executive widget (FR-DEAL-16..19, FR-EXEC-14..15) |
 
 **Rule:** When derived documents conflict with source PDFs, **the PDFs prevail**. Update derived docs after verifying against source.
 

@@ -17,6 +17,8 @@ import { getTokenizationProjectByDeal, getTokenizationProjectOptions } from "@/l
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { DealDetailSummary } from "@/components/pipeline/deal-detail-summary";
+import { DealCommercialRisksPanel } from "@/components/pipeline/deal-commercial-risks-panel";
+import { getCommercialRiskSuggestions } from "@/lib/actions/commercial-risks";
 import { ActivityPanel } from "@/components/pipeline/activity-panel";
 import { TaskPanel } from "@/components/pipeline/task-panel";
 import { NotePanel } from "@/components/pipeline/note-panel";
@@ -38,7 +40,7 @@ export default async function DealDetailPage({
   const dealData = await getDeal(id);
   if (!dealData) notFound();
 
-  const [activities, tasks, notes, history, profiles, partnership, partnershipOptions, tokenizationProject, tokenizationOptions, contacts, influenceGraph] = await Promise.all([
+  const [activities, tasks, notes, history, profiles, partnership, partnershipOptions, tokenizationProject, tokenizationOptions, contacts, influenceGraph, riskSuggestions] = await Promise.all([
     getActivities(id),
     getTasks(id),
     getNotes(id),
@@ -50,6 +52,7 @@ export default async function DealDetailPage({
     getTokenizationProjectOptions(),
     getContacts(dealData.organization_id),
     getInfluenceGraphData({ deal_id: id }),
+    getCommercialRiskSuggestions(id),
   ]);
 
   const deal = dealData;
@@ -76,6 +79,7 @@ export default async function DealDetailPage({
 
         <div className="space-y-6">
           <DealDetailSummary deal={deal} />
+          <DealCommercialRisksPanel deal={deal} suggestions={riskSuggestions} />
           <DealPartnershipPanel
             dealId={id}
             partnership={partnership}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge, priorityVariant } from "@/components/ui/badge";
 import { labelFor, DEAL_PRIORITIES, REVENUE_ENGINES, stageLabel, weightedValue } from "@/lib/constants/deals";
 import { formatCurrency } from "@/lib/utils";
+import { CommercialRiskBadges } from "@/components/pipeline/deal-commercial-risks-panel";
 import type { Deal } from "@/types/pipeline";
 import { ChevronRight } from "lucide-react";
 
@@ -28,6 +29,7 @@ export function DealTable({ deals }: { deals: Deal[] }) {
             <th className="px-4 py-3">Value</th>
             <th className="px-4 py-3">Weighted</th>
             <th className="px-4 py-3">Engine</th>
+            <th className="hidden px-4 py-3 md:table-cell">Risks</th>
             <th className="px-4 py-3">Close</th>
             <th className="w-8" />
           </tr>
@@ -52,6 +54,9 @@ export function DealTable({ deals }: { deals: Deal[] }) {
                       {labelFor(DEAL_PRIORITIES, deal.priority)}
                     </Badge>
                   )}
+                  <span className="ml-2 md:hidden">
+                    <CommercialRiskBadges deal={deal} compact />
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-gray-600">{org?.name ?? "—"}</td>
                 <td className="px-4 py-3">
@@ -65,6 +70,9 @@ export function DealTable({ deals }: { deals: Deal[] }) {
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {labelFor(REVENUE_ENGINES, deal.revenue_engine)}
+                </td>
+                <td className="hidden px-4 py-3 md:table-cell">
+                  <CommercialRiskBadges deal={deal} />
                 </td>
                 <td className={`px-4 py-3 ${overdue ? "text-red-600 font-medium" : "text-gray-600"}`}>
                   {deal.expected_close_date

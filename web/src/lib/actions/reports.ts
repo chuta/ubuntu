@@ -4,6 +4,7 @@ import { createClient, getProfile } from "@/lib/supabase/server";
 import { isOpenPipelineStage, weightedValue } from "@/lib/constants/deals";
 import { resolveDateRange } from "@/lib/constants/reports";
 import { getForecastSummary } from "@/lib/actions/forecasts";
+import { aggregateCommercialRisks } from "@/lib/commercial-risks/aggregate";
 import type { DealStage } from "@/types/pipeline";
 import type { B2cCampaignMetric, ExecutiveReportData } from "@/types/reports";
 import { SELECT } from "@/lib/supabase/embeds";
@@ -30,7 +31,9 @@ export async function getExecutiveReportData(params?: {
   ] = await Promise.all([
     supabase
       .from("deals")
-      .select("id, name, stage, segment, revenue_engine, estimated_value, probability, priority, created_at, actual_close_date")
+      .select(
+        "id, name, stage, segment, revenue_engine, estimated_value, probability, priority, created_at, actual_close_date, commercial_risk_flags, commercial_risk_severity, commercial_risk_review_date"
+      )
       .is("deleted_at", null),
     supabase
       .from("organizations")
@@ -137,6 +140,17 @@ export async function getExecutiveReportData(params?: {
 
   const events = eventsResult.data ?? [];
   const leads = leadsResult.data ?? [];
+  const commercialRisks = aggregateCommercialRisks(
+    deals.map((d) => ({
+      id: d.id,
+      name: d.name,
+      stage: d.stage,
+      estimated_value: d.estimated_value != null ? Number(d.estimated_value) : null,
+      commercial_risk_flags: d.commercial_risk_flags ?? [],
+      commercial_risk_severity: d.commercial_risk_severity ?? null,
+      commercial_risk_review_date: d.commercial_risk_review_date ?? null,
+    }))
+  );
 
   return {
     period,
@@ -183,6 +197,7 @@ export async function getExecutiveReportData(params?: {
       totalBestCase: forecast.totalBestCase,
     },
     b2c,
+    commercialRisks,
   };
 }
 

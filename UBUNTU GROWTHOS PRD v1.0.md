@@ -4,12 +4,12 @@
 
 | Field | Value |
 | --- | --- |
-| **Version** | 1.3 |
-| **Status** | Approved for Build — **Week 8 pivot: Regulatory Affairs + Influence Graph** |
+| **Version** | 1.4 |
+| **Status** | Approved for Build — **Week 8 pivot + COM §6 commercial risk flags** |
 | **Author** | Chimezie Chuta |
 | **Role** | Commercial Director of Sales & Partnerships |
 | **Platform** | Ubuntu GrowthOS |
-| **Upstream Documents** | Source Documents Index, Knowledge Base v1.0, COM v1.0, FSB v1.0, ERM v1.0, Website Reference (utribe.one) |
+| **Upstream Documents** | Source Documents Index, Knowledge Base v1.0, COM v1.0, FSB v1.0, ERM v1.0, Website Reference (utribe.one), **Commercial Risk Flags Spec v1.0** |
 | **Source of Truth** | 4 PDFs — see `UBUNTU GROWTHOS SOURCE DOCUMENTS INDEX.md` |
 | **Primary Audience** | Personal build guide (Chimezie + Cursor) |
 | **Target Launch** | Week 8 — full Phase 1 live |
@@ -353,6 +353,12 @@ Requirements use the format: **FR-{MODULE}-{NN}** with priority **P0** (launch b
 | FR-DEAL-13 | Manual forecast entry (weekly/monthly/quarterly) | P1 | Forecast record with period, amount, segment filter, submitter |
 | FR-DEAL-14 | Lead source tracking | P0 | Source: Inbound, Outbound, Event, Referral, Partner, Government, Other |
 | FR-DEAL-15 | Expected and actual close dates | P0 | Date fields with overdue highlighting |
+| FR-DEAL-16 | Commercial risk flags on deals | P1 | Multi-select six COM §6 categories (`commercial_risk_type[]`); see `UBUNTU GROWTHOS COMMERCIAL RISK FLAGS SPEC v1.md` |
+| FR-DEAL-17 | Risk severity, mitigation, review date | P1 | Required severity when flags set; review date required for HIGH/CRITICAL; notes and mitigation text |
+| FR-DEAL-18 | Risk suggestions from REG/pipeline heuristics | P1 | Non-blocking suggested flags on deal edit/detail from linked regulatory records and stage heuristics |
+| FR-DEAL-19 | Pipeline filter by commercial risk | P1 | Filter list/kanban by flag presence, specific flag, and severity |
+
+**Out of scope P1:** Full ComplianceCase / DD center (Phase 2); organization-level risk register.
 
 ---
 
@@ -483,6 +489,8 @@ Requirements use the format: **FR-{MODULE}-{NN}** with priority **P0** (launch b
 | FR-EXEC-11 | Executive read-only access | P0 | Executive role sees dashboard and all data read-only |
 | FR-EXEC-12 | Regulatory affairs summary widget | P1 | Open meetings, pending consultations, at-risk requirements by territory |
 | FR-EXEC-13 | Influence graph coverage widget | P1 | Active B2G deals with mapped relationships vs. total active B2G deals |
+| FR-EXEC-14 | Commercial risk summary widget | P1 | Count open deals with commercial risk flags, by category, by severity, overdue review dates |
+| FR-EXEC-15 | Top at-risk deals list | P1 | Up to 5 flagged deals with severity, value, and link to deal detail; see Commercial Risk Flags Spec v1.0 |
 
 ---
 
@@ -1015,7 +1023,7 @@ Recommended implementation order (mirrors Weeks 2–7 patterns):
 | 4 | Server actions — SIG (position history, relationships, graph query) | `src/lib/actions/contacts.ts` + graph aggregation |
 | 5 | REG UI — list/detail pages under `/regulatory/*` | Events module UI |
 | 6 | SIG UI — `/influence` graph + contact career tab + deal Influence tab | New graph component (e.g. react-force-graph or custom SVG) |
-| 7 | Nav + dashboard widgets (FR-EXEC-12/13 P1 if time) | `src/components/layout/nav.tsx`, dashboard |
+| 7 | Nav + dashboard widgets (FR-EXEC-12..15 P1 if time) | `src/components/layout/nav.tsx`, dashboard |
 | 8 | Launch checklist remainder (PDF seed, deploy, E2E) | §13.4 |
 
 ---
@@ -1110,18 +1118,18 @@ Measured 30 days after Week 8 launch.
 | PLT | 5 | 2 | 🟢 **Good** |
 | GOV | 9 | 1 | 🟡 **Partial** — FR-GOV-07 completes with SIG |
 | ACC | 6 | 2 | 🟢 **Good** |
-| DEAL | 12 | 3 | 🟢 **Good** |
+| DEAL | 12 | 7 | 🟡 **Partial** — FR-DEAL-16..19 remaining (COM §6 risk flags) |
 | DOC | 7 | 2 | 🟡 **Partial** |
 | EVT | 7 | 3 | 🟢 **Good** |
 | TOK | 10 | 0 | 🟢 **Good** |
 | CAP | 3 | 2 | ⬜ **Deferred** |
 | KNW | 11 | 1 | 🟡 **Partial** |
 | PRT | 4 | 2 | 🟢 **Good** |
-| EXEC | 8 | 5 | 🟢 **Good** |
+| EXEC | 8 | 7 | 🟡 **Partial** — FR-EXEC-14..15 remaining (commercial risk widget) |
 | REG | 12 | 2 | ⬜ **Remaining** |
 | SIG | 12 | 2 | ⬜ **Remaining** |
 | BRD | 6 | 0 | 🟢 **Good** |
-| **Total** | **112** | **25** | **137 requirements** |
+| **Total** | **112** | **31** | **143 requirements** |
 
 ---
 
@@ -1155,7 +1163,8 @@ Items explicitly deferred from Phase 1 for future PRD revision.
 | **Logo asset** | `download.svg` | App header, login, PDF reports, favicon source |
 | **Website reference doc** | `UBUNTU TRIBE WEBSITE REFERENCE - utribe.one.md` | Curated brand/messaging guide for build |
 | **Knowledge Base v1.0** | `UBUNTU TRIBE KNOWLEDGE BASE -v1.0.md` | Strategic context and B2G model |
-| **Commercial Operating Model** | `UBUNTU COMMERCIAL OPERATING MODEL (COM v1.md` | Revenue engines and lifecycle |
+| **Commercial Operating Model** | `UBUNTU COMMERCIAL OPERATING MODEL (COM v1.md` | Revenue engines, lifecycle, §6 commercial risk areas |
+| **Commercial Risk Flags Spec** | `UBUNTU GROWTHOS COMMERCIAL RISK FLAGS SPEC v1.md` | COM §6 → FR-DEAL-16..19, FR-EXEC-14..15 implementation spec |
 | **Functional Spec Blueprint** | `UBUNTU GROWTHOS FUNCTIONAL SPECIFICATION BLUEPRINT (FSB v1.md` | Module architecture |
 | **Source Documents Index** | `UBUNTU GROWTHOS SOURCE DOCUMENTS INDEX.md` | 4 PDFs as source of truth; Knowledge Vault seed spec |
 | **Source PDF — B2G Deck** | ` B2G Master Presentation  2.pdf` | B2G sovereign tokenization (29 pp) |
@@ -1175,6 +1184,7 @@ Items explicitly deferred from Phase 1 for future PRD revision.
 | 1.2 | 2026-06-20 | Chimezie Chuta | Build status legend; 🟢 **Good** / 🟡 **Partial** / ⬜ **Remaining** markers on weeks, modules, launch checklist |
 | 1.2 | 2026-06-20 | Chimezie Chuta | Source PDFs as Knowledge Vault seeds; build context; FR-KNW-08–11; Source Documents Index |
 | 1.3 | 2026-06-20 | Chimezie Chuta | **Week 8 pivot:** M11 Regulatory Affairs (REG) + M12 Strategic Influence Graph (SIG); §5.3 data model; FR-REG-01–14, FR-SIG-01–14; CAP deferred post-launch; Week 8 launch blocked on REG + SIG |
+| 1.4 | 2026-06-22 | Chimezie Chuta | **COM §6 commercial risk flags:** `UBUNTU GROWTHOS COMMERCIAL RISK FLAGS SPEC v1.md`; FR-DEAL-16..19 (deal flags, severity, suggestions, pipeline filter); FR-EXEC-14..15 (dashboard widget) |
 
 ---
 

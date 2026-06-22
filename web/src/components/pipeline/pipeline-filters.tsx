@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { CUSTOMER_SEGMENTS, DEAL_STAGES, REVENUE_ENGINES } from "@/lib/constants/deals";
+import { COMMERCIAL_RISK_TYPES, COMMERCIAL_RISK_SEVERITIES } from "@/lib/constants/commercial-risks";
 import { LayoutGrid, List, Search } from "lucide-react";
 
 export function PipelineFilters() {
@@ -73,6 +73,35 @@ export function PipelineFilters() {
           <option value="">All engines</option>
           {REVENUE_ENGINES.map((e) => (
             <option key={e.value} value={e.value}>{e.label}</option>
+          ))}
+        </Select>
+        <Select
+          value={searchParams.get("has_risk") ?? ""}
+          onChange={(e) => update("has_risk", e.target.value)}
+          className="sm:w-40"
+        >
+          <option value="">All deals</option>
+          <option value="1">Flagged only</option>
+        </Select>
+        <Select
+          value={searchParams.get("risk_flag") ?? ""}
+          onChange={(e) => update("risk_flag", e.target.value)}
+          className="sm:w-44"
+        >
+          <option value="">All risk types</option>
+          {COMMERCIAL_RISK_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>{t.shortLabel}</option>
+          ))}
+        </Select>
+        <Select
+          value={searchParams.get("risk_severity") ?? ""}
+          onChange={(e) => update("risk_severity", e.target.value)}
+          className="sm:w-40"
+        >
+          <option value="">All severities</option>
+          <option value="HIGH_PLUS">High+</option>
+          {COMMERCIAL_RISK_SEVERITIES.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </Select>
       </div>

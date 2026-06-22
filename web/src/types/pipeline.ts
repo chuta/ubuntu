@@ -35,6 +35,16 @@ export type DealSource =
 
 export type DealPriority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
+export type CommercialRiskType =
+  | "REGULATORY_DELAY"
+  | "PROCUREMENT_CYCLE"
+  | "INSTITUTIONAL_DD"
+  | "TOKEN_LIQUIDITY"
+  | "MARKET_VOLATILITY"
+  | "COUNTERPARTY";
+
+export type CommercialRiskSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
 export type ActivityType =
   | "CALL"
   | "MEETING"
@@ -83,6 +93,12 @@ export type Deal = {
   next_step: string | null;
   next_step_date: string | null;
   description: string | null;
+  commercial_risk_flags: CommercialRiskType[];
+  commercial_risk_severity: CommercialRiskSeverity | null;
+  commercial_risk_notes: string | null;
+  commercial_risk_mitigation: string | null;
+  commercial_risk_review_date: string | null;
+  commercial_risk_updated_at: string | null;
   created_at: string;
   updated_at: string;
   organization?: DealOrganization | null;
