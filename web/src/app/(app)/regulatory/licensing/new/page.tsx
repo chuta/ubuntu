@@ -20,7 +20,7 @@ export default async function NewLicensingPage() {
   return (
     <>
       <Header profile={profile!} title="New Licensing Conversation" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <h2 className="mb-6 text-lg font-semibold text-gray-900">Create Licensing Conversation</h2>
         <LicensingForm territories={territories} organizations={organizations} contacts={contacts} deals={deals} />
       </main>

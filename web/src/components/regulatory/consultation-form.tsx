@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
+import { RegulatorSelect } from "@/components/regulatory/regulator-select";
 import { createConsultation, updateConsultation, type ConsultationFormData } from "@/lib/actions/regulatory";
-import { CONSULTATION_RESPONSE_STATUSES } from "@/lib/constants/regulatory";
+import { CONSULTATION_RESPONSE_STATUSES, type RegulatorOrganizationOption } from "@/lib/constants/regulatory";
 import type { RegulatoryConsultation } from "@/types/regulatory";
 import type { Territory } from "@/types/crm";
 
@@ -19,7 +20,7 @@ export function ConsultationForm({
   consultation,
 }: {
   territories: Territory[];
-  organizations: { id: string; name: string }[];
+  organizations: RegulatorOrganizationOption[];
   documents: { id: string; title: string }[];
   consultation?: RegulatoryConsultation;
 }) {
@@ -78,10 +79,10 @@ export function ConsultationForm({
             </Select>
           </FormField>
           <FormField label="Regulator" htmlFor="regulator_organization_id">
-            <Select id="regulator_organization_id" name="regulator_organization_id" defaultValue={consultation?.regulator_organization_id ?? ""}>
-              <option value="">None</option>
-              {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </Select>
+            <RegulatorSelect
+              regulators={organizations}
+              defaultValue={consultation?.regulator_organization_id ?? ""}
+            />
           </FormField>
           <FormField label="Published Date" htmlFor="published_date">
             <Input id="published_date" name="published_date" type="date" defaultValue={consultation?.published_date?.slice(0, 10) ?? ""} />

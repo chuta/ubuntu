@@ -10,10 +10,12 @@ export function ExportReportButtons({
   preset,
   from,
   to,
+  className,
 }: {
   preset?: string;
   from?: string;
   to?: string;
+  className?: string;
 }) {
   const [loading, setLoading] = useState<ExportFormat | null>(null);
 
@@ -48,12 +50,23 @@ export function ExportReportButtons({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button onClick={() => handleExport("pdf")} disabled={loading !== null}>
+    <div className={`flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap ${className ?? ""}`}>
+      <Button
+        onClick={() => handleExport("pdf")}
+        disabled={loading !== null}
+        className="w-full sm:w-auto"
+        size="sm"
+      >
         <Download className="mr-2 h-4 w-4" />
         {loading === "pdf" ? "Generating PDF…" : "Export PDF"}
       </Button>
-      <Button variant="outline" onClick={() => handleExport("docx")} disabled={loading !== null}>
+      <Button
+        variant="outline"
+        onClick={() => handleExport("docx")}
+        disabled={loading !== null}
+        className="w-full sm:w-auto"
+        size="sm"
+      >
         <FileText className="mr-2 h-4 w-4" />
         {loading === "docx" ? "Generating DOCX…" : "Export DOCX"}
       </Button>

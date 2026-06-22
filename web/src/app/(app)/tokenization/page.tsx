@@ -20,7 +20,7 @@ export default async function TokenizationPage({
   return (
     <>
       <Header profile={profile!} title="Tokenization Registry" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <PageHeader
           title="B2G Tokenization Registry"
           description="Resource Discovery through Development & Deployment"

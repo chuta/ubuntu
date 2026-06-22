@@ -24,6 +24,11 @@
 body {
   background: var(--surface);
   color: var(--foreground);
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 .brand-gradient {

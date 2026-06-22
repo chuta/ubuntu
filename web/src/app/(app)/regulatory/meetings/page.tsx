@@ -28,7 +28,7 @@ export default async function MeetingsPage({
   return (
     <>
       <Header profile={profile!} title="Regulatory Affairs" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <RegulatorySectionNav />
         <PageHeader
           title="Regulatory Meetings"

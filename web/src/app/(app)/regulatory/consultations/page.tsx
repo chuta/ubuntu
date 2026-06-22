@@ -24,7 +24,7 @@ export default async function ConsultationsPage({
   return (
     <>
       <Header profile={profile!} title="Regulatory Affairs" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <RegulatorySectionNav />
         <PageHeader title="Consultation Papers" description="Track consultation papers and response deadlines" actionHref="/regulatory/consultations/new" actionLabel="New Consultation" />
         <Suspense><RegulatoryFilters basePath="/regulatory/consultations" statusKey="response_status" statusOptions={CONSULTATION_RESPONSE_STATUSES} territories={territories} /></Suspense>

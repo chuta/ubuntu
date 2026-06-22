@@ -21,6 +21,10 @@ import type {
   RegulatoryRequirementCategory,
   RegulatoryComplianceStatus,
 } from "@/types/regulatory";
+import {
+  NIGERIA_REGULATORS,
+  type RegulatorOrganizationOption,
+} from "@/lib/constants/regulatory";
 
 function revalidateRegulatory(section: string, id?: string) {
   revalidatePath("/regulatory");
@@ -31,14 +35,120 @@ function revalidateRegulatory(section: string, id?: string) {
 
 // ─── Shared options ───────────────────────────────────────────────────────────
 
-export async function getRegulatorOrganizationOptions() {
+async function ensureNigeriaRegulators(): Promise<RegulatorOrganizationOption[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("organizations")
-    .select("id, name, segment")
-    .is("deleted_at", null)
-    .order("name");
-  return data ?? [];
+  const profile = await getProfile();
+  if (!profile) throw new Error("Not authenticated");
+
+  const { data: territory } = await supabase
+    .from("territories")
+    .select("id")
+    .eq("country_code", "NG")
+    .maybeSingle();
+
+  const results: RegulatorOrganizationOption[] = [];
+
+  for (const regulator of NIGERIA_REGULATORS) {
+    const { data: existing } = await supabase
+      .from("organizations")
+      .select("id, name, metadata")
+      .eq("metadata->>regulator_code", regulator.code)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existing) {
+      results.push({
+        id: existing.id,
+        name: regulator.name,
+        acronym: regulator.acronym,
+        code: regulator.code,
+        category: regulator.category,
+      });
+      continue;
+    }
+
+    const { data: created, error: orgError } = await supabase
+      .from("organizations")
+      .insert({
+        name: regulator.name,
+        legal_name: regulator.name,
+        organization_type: "GOVERNMENT",
+        segment: "B2G",
+        website: regulator.website ?? null,
+        headquarters_country: "NG",
+        territory_id: territory?.id ?? null,
+        owner_id: profile.id,
+        created_by: profile.id,
+        status: "ACTIVE",
+        tier: "TIER_1",
+        description: regulator.description,
+        metadata: {
+          regulator_code: regulator.code,
+          regulator_acronym: regulator.acronym,
+          regulator_category: regulator.category,
+          regulator_tags: regulator.tags,
+          regulator_email: regulator.email ?? null,
+          regulator_phone: regulator.phone ?? null,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (orgError) {
+      if (orgError.code === "23505") {
+        const { data: raced } = await supabase
+          .from("organizations")
+          .select("id")
+          .eq("metadata->>regulator_code", regulator.code)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (raced) {
+          results.push({
+            id: raced.id,
+            name: regulator.name,
+            acronym: regulator.acronym,
+            code: regulator.code,
+            category: regulator.category,
+          });
+        }
+        continue;
+      }
+      throw new Error(orgError.message);
+    }
+
+    const { error: profileError } = await supabase.from("government_profiles").insert({
+      organization_id: created.id,
+      government_level: "NATIONAL",
+      entity_subtype: "REGULATORY_BODY",
+      jurisdiction: "Nigeria",
+      engagement_priority: regulator.category === "PRIMARY_DIGITAL_ASSET" ? "CRITICAL" : "HIGH",
+      regulatory_environment_notes: regulator.description,
+    });
+
+    if (profileError) {
+      await supabase.from("organizations").delete().eq("id", created.id);
+      throw new Error(profileError.message);
+    }
+
+    results.push({
+      id: created.id,
+      name: regulator.name,
+      acronym: regulator.acronym,
+      code: regulator.code,
+      category: regulator.category,
+    });
+  }
+
+  return results.sort((a, b) => {
+    if (a.category !== b.category) {
+      return a.category === "PRIMARY_DIGITAL_ASSET" ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export async function getRegulatorOrganizationOptions(): Promise<RegulatorOrganizationOption[]> {
+  return ensureNigeriaRegulators();
 }
 
 export async function getRegulatoryDealOptions() {

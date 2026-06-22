@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
+import { RegulatorSelect } from "@/components/regulatory/regulator-select";
 import {
   createSubmission,
   updateSubmission,
   type SubmissionFormData,
 } from "@/lib/actions/regulatory";
-import { SUBMISSION_TYPES, SUBMISSION_STATUSES } from "@/lib/constants/regulatory";
+import { SUBMISSION_TYPES, SUBMISSION_STATUSES, type RegulatorOrganizationOption } from "@/lib/constants/regulatory";
 import type { RegulatorySubmission } from "@/types/regulatory";
 import type { Territory } from "@/types/crm";
 
@@ -24,7 +25,7 @@ export function SubmissionForm({
   submission,
 }: {
   territories: Territory[];
-  organizations: { id: string; name: string }[];
+  organizations: RegulatorOrganizationOption[];
   deals: { id: string; name: string }[];
   documents: { id: string; title: string }[];
   submission?: RegulatorySubmission;
@@ -91,10 +92,10 @@ export function SubmissionForm({
             </Select>
           </FormField>
           <FormField label="Regulator" htmlFor="regulator_organization_id">
-            <Select id="regulator_organization_id" name="regulator_organization_id" defaultValue={submission?.regulator_organization_id ?? ""}>
-              <option value="">None</option>
-              {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </Select>
+            <RegulatorSelect
+              regulators={organizations}
+              defaultValue={submission?.regulator_organization_id ?? ""}
+            />
           </FormField>
           <FormField label="Submitted Date" htmlFor="submitted_at">
             <Input id="submitted_at" name="submitted_at" type="date" defaultValue={submission?.submitted_at?.slice(0, 10) ?? ""} />

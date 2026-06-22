@@ -161,3 +161,114 @@ export function statusVariant(status: string) {
       return "default" as const;
   }
 }
+
+export type NigeriaRegulatorCategory = "PRIMARY_DIGITAL_ASSET" | "SUPPORTING";
+
+export type NigeriaRegulatorDefinition = {
+  code: string;
+  acronym: string;
+  name: string;
+  description: string;
+  category: NigeriaRegulatorCategory;
+  tags: string[];
+  website?: string;
+  email?: string;
+  phone?: string;
+};
+
+/** Canonical Nigeria regulators for Ubuntu Tribe digital-asset operations. */
+export const NIGERIA_REGULATORS: NigeriaRegulatorDefinition[] = [
+  {
+    code: "CBN",
+    acronym: "CBN",
+    name: "Central Bank of Nigeria",
+    description: "Monetary policy, payment systems, naira, banking supervision",
+    category: "PRIMARY_DIGITAL_ASSET",
+    tags: ["PAYMENT", "STABLECOIN", "ENAIRA", "BANKING"],
+    website: "https://cbn.gov.ng",
+    email: "info@cbn.gov.ng",
+    phone: "+234 0800-225-5226",
+  },
+  {
+    code: "NFIU",
+    acronym: "NFIU",
+    name: "Nigerian Financial Intelligence Unit",
+    description: "AML/CFT compliance, STR/CTR filing, financial intelligence",
+    category: "PRIMARY_DIGITAL_ASSET",
+    tags: ["AML", "CFT", "STR", "CTR"],
+    website: "https://nfiu.gov.ng",
+    email: "info@nfiu.gov.ng",
+    phone: "+234 09-461-0000",
+  },
+  {
+    code: "SEC_NIGERIA",
+    acronym: "SEC Nigeria",
+    name: "Securities and Exchange Commission Nigeria",
+    description: "Primary regulator for digital assets under ISA 2025",
+    category: "PRIMARY_DIGITAL_ASSET",
+    tags: ["DAX", "DAOP", "DAC", "DAI"],
+    website: "https://sec.gov.ng",
+    email: "info@sec.gov.ng",
+    phone: "+234 09-462-3600",
+  },
+  {
+    code: "CAC",
+    acronym: "CAC",
+    name: "Corporate Affairs Commission",
+    description: "Company registration, beneficial ownership register",
+    category: "SUPPORTING",
+    tags: ["INCORPORATION", "BENEFICIAL_OWNERSHIP"],
+    website: "https://cac.gov.ng",
+    email: "info@cac.gov.ng",
+    phone: "+234 09-461-8000",
+  },
+  {
+    code: "EFCC",
+    acronym: "EFCC",
+    name: "Economic and Financial Crimes Commission",
+    description: "Financial crime investigation and prosecution",
+    category: "SUPPORTING",
+    tags: ["ENFORCEMENT", "AML", "FRAUD"],
+    website: "https://efcc.gov.ng",
+    email: "info@efcc.gov.ng",
+    phone: "+234 09-904-5086",
+  },
+  {
+    code: "NAICOM",
+    acronym: "NAICOM",
+    name: "National Insurance Commission",
+    description: "Insurance regulation — fidelity bonds for VASPs",
+    category: "SUPPORTING",
+    tags: ["INSURANCE", "FIDELITY_BOND"],
+    website: "https://naicom.gov.ng",
+  },
+  {
+    code: "NITDA",
+    acronym: "NITDA",
+    name: "National Information Technology Development Agency",
+    description: "Blockchain policy, data protection (NDPA), AI strategy",
+    category: "SUPPORTING",
+    tags: ["BLOCKCHAIN_POLICY", "DATA_PROTECTION", "AI"],
+    website: "https://nitda.gov.ng",
+    email: "info@nitda.gov.ng",
+    phone: "+234 09-291-5000",
+  },
+];
+
+export type RegulatorOrganizationOption = {
+  id: string;
+  name: string;
+  acronym: string;
+  code: string;
+  category: NigeriaRegulatorCategory;
+};
+
+export function regulatorCategoryLabel(category: NigeriaRegulatorCategory) {
+  return category === "PRIMARY_DIGITAL_ASSET"
+    ? "Primary Digital Asset Regulators"
+    : "Supporting Regulatory Bodies";
+}
+
+export function regulatorOptionLabel(regulator: Pick<RegulatorOrganizationOption, "acronym" | "name">) {
+  return `${regulator.acronym} — ${regulator.name}`;
+}

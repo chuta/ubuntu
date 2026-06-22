@@ -10,7 +10,7 @@ export default async function NewKnowledgePage() {
   return (
     <>
       <Header profile={profile!} title="Upload to Knowledge Vault" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <KnowledgeUploadForm
           products={options.products}
           territories={options.territories}

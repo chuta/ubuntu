@@ -22,15 +22,15 @@ export default async function DashboardPage({
   return (
     <>
       <Header profile={profile!} title="Executive Command Center" />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
+        <div className="mb-6 flex flex-col gap-4">
           <Suspense>
             <DateRangeFilter />
           </Suspense>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
               href={`/reports?preset=${params.preset ?? "week"}${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`}
-              className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:border-brand-purple hover:text-brand-purple"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-brand-purple hover:text-brand-purple sm:w-auto"
             >
               Preview Report
             </Link>

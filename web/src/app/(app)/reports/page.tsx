@@ -20,7 +20,7 @@ export default async function ReportsPage({
   return (
     <>
       <Header profile={profile!} title="Executive Report" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/dashboard" className="inline-flex items-center text-sm text-gray-500 hover:text-brand-purple">
             <ArrowLeft className="mr-1 h-4 w-4" />

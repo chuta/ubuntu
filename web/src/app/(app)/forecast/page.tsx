@@ -12,7 +12,7 @@ export default async function ForecastPage() {
   return (
     <>
       <Header profile={profile!} title="Revenue Forecast" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-gray-200 bg-white p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Open Pipeline</p>

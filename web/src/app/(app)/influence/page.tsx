@@ -53,7 +53,7 @@ export default async function InfluencePage({
   return (
     <>
       <Header profile={profile!} title="Strategic Influence Graph" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <PageHeader
           title="Strategic Influence Graph"
           description="Person-to-person relationships, former roles, current influence, and relationship strength"

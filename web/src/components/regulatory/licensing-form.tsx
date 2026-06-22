@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
+import { RegulatorSelect } from "@/components/regulatory/regulator-select";
 import { createLicensingConversation, updateLicensingConversation, type LicensingFormData } from "@/lib/actions/regulatory";
-import { LICENSE_TYPES, LICENSING_STATUSES } from "@/lib/constants/regulatory";
+import { LICENSE_TYPES, LICENSING_STATUSES, type RegulatorOrganizationOption } from "@/lib/constants/regulatory";
 import type { LicensingConversation } from "@/types/regulatory";
 import type { Territory } from "@/types/crm";
 
@@ -20,7 +21,7 @@ export function LicensingForm({
   conversation,
 }: {
   territories: Territory[];
-  organizations: { id: string; name: string }[];
+  organizations: RegulatorOrganizationOption[];
   contacts: { id: string; first_name: string; last_name: string }[];
   deals: { id: string; name: string }[];
   conversation?: LicensingConversation;
@@ -86,10 +87,10 @@ export function LicensingForm({
             </Select>
           </FormField>
           <FormField label="Regulator" htmlFor="regulator_organization_id">
-            <Select id="regulator_organization_id" name="regulator_organization_id" defaultValue={conversation?.regulator_organization_id ?? ""}>
-              <option value="">None</option>
-              {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </Select>
+            <RegulatorSelect
+              regulators={organizations}
+              defaultValue={conversation?.regulator_organization_id ?? ""}
+            />
           </FormField>
           <FormField label="Primary Contact" htmlFor="primary_contact_id">
             <Select id="primary_contact_id" name="primary_contact_id" defaultValue={conversation?.primary_contact_id ?? ""}>

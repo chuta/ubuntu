@@ -24,7 +24,7 @@ export default async function RequirementsPage({
   return (
     <>
       <Header profile={profile!} title="Regulatory Affairs" />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6">
         <RegulatorySectionNav />
         <PageHeader title="Compliance Requirements" description="Track jurisdiction-specific regulatory requirements" actionHref="/regulatory/requirements/new" actionLabel="New Requirement" />
         <Suspense><RegulatoryFilters basePath="/regulatory/requirements" statusKey="compliance_status" statusOptions={COMPLIANCE_STATUSES} territories={territories} /></Suspense>

@@ -45,13 +45,16 @@ export function ExecutiveDashboard({
   return (
     <>
       {!compact && (
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-4 text-sm leading-relaxed text-gray-500">
           Reporting period: <strong className="text-gray-700">{data.period.label}</strong>
-          {" "}({data.period.from} – {data.period.to})
+          <span className="block sm:inline">
+            {" "}
+            ({data.period.from} – {data.period.to})
+          </span>
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -68,7 +71,7 @@ export function ExecutiveDashboard({
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600">
+      <div className="mt-4 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:gap-4">
         <span><strong className="text-brand-purple">{data.pipeline.newDeals}</strong> new deals in period</span>
         <span><strong className="text-brand-gold">{data.pipeline.wonDeals}</strong> won in period</span>
         <span><Calendar className="mr-1 inline h-3.5 w-3.5" />{data.events.count} events · {data.events.leadsCaptured} leads · {data.events.leadsConverted} converted</span>

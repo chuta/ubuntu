@@ -7,16 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
+import { RegulatorSelect } from "@/components/regulatory/regulator-select";
 import {
   createMeeting,
   updateMeeting,
   type MeetingFormData,
 } from "@/lib/actions/regulatory";
 import { MEETING_TYPES, MEETING_STATUSES } from "@/lib/constants/regulatory";
+import type { RegulatorOrganizationOption } from "@/lib/constants/regulatory";
 import type { RegulatoryMeeting } from "@/types/regulatory";
 import type { Territory } from "@/types/crm";
-
-type Option = { id: string; name: string };
 
 export function MeetingForm({
   territories,
@@ -25,7 +25,7 @@ export function MeetingForm({
   meeting,
 }: {
   territories: Territory[];
-  organizations: Option[];
+  organizations: RegulatorOrganizationOption[];
   deals: { id: string; name: string }[];
   meeting?: RegulatoryMeeting;
 }) {
@@ -112,12 +112,10 @@ export function MeetingForm({
             </Select>
           </FormField>
           <FormField label="Regulator" htmlFor="regulator_organization_id">
-            <Select id="regulator_organization_id" name="regulator_organization_id" defaultValue={meeting?.regulator_organization_id ?? ""}>
-              <option value="">None</option>
-              {organizations.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </Select>
+            <RegulatorSelect
+              regulators={organizations}
+              defaultValue={meeting?.regulator_organization_id ?? ""}
+            />
           </FormField>
           <FormField label="Linked Deal" htmlFor="deal_id">
             <Select id="deal_id" name="deal_id" defaultValue={meeting?.deal_id ?? ""}>
