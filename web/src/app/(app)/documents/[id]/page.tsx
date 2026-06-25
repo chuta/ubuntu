@@ -5,6 +5,7 @@ import { getDocument, getDocumentVersions } from "@/lib/actions/documents";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { DocumentDetailSummary, VersionPanel } from "@/components/documents/document-detail";
+import { DraftGenerationStatus } from "@/components/documents/draft-generation-status";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
 import { ArrowLeft, Pencil } from "lucide-react";
 
@@ -43,6 +44,13 @@ export default async function DocumentDetailPage({
         </div>
         <div className="space-y-6">
           <DocumentDetailSummary document={document} />
+          {document.ai_generated && versions.length === 0 && (
+            <DraftGenerationStatus
+              documentId={id}
+              initialStatus={document.ai_generation_status}
+              initialError={document.ai_generation_error}
+            />
+          )}
           <VersionPanel documentId={id} documentType={document.document_type} versions={versions} />
         </div>
       </main>

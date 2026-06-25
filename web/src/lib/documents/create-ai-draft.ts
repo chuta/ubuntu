@@ -1,26 +1,47 @@
-import { generateDocumentDraft, isAiConfigured } from "@/lib/ai/draft-document";
-import { applyDocumentBranding } from "@/lib/documents/branded-markdown";
-import { labelFor, DOCUMENT_TYPES } from "@/lib/constants/documents";
-import {
-  documentKey,
-  inlineStorageUrl,
-  isStorageConfigured,
-  uploadText,
-} from "@/lib/s3/storage";
-import type { DocumentVersion } from "@/types/documents";
+import { generateBrandedDraft, isAiConfigured } from "@/lib/documents/draft-core";
+import { inlineStorageUrl } from "@/lib/s3/storage";
 import type { AiDraftParams } from "@/lib/actions/documents";
 import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-async function createVersion(
+export const AI_GENERATION_STATUS = {
+  pending: "PENDING",
+  ready: "READY",
+  error: "ERROR",
+} as const;
+
+/** Resolve linked org/deal names for richer prompt context. */
+async function resolveContext(supabase: Supabase, params: AiDraftParams) {
+  let organizationName: string | undefined;
+  let dealName: string | undefined;
+
+  if (params.organization_id) {
+    const { data } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", params.organization_id)
+      .single();
+    organizationName = data?.name ?? undefined;
+  }
+  if (params.deal_id) {
+    const { data } = await supabase
+      .from("deals")
+      .select("name")
+      .eq("id", params.deal_id)
+      .single();
+    dealName = data?.name ?? undefined;
+  }
+
+  return { organizationName, dealName };
+}
+
+async function storeDraftVersion(
   supabase: Supabase,
   documentId: string,
   userId: string,
-  content: string,
-  changeSummary: string,
-  filename: string
-): Promise<DocumentVersion> {
+  content: string
+) {
   const { data: existing } = await supabase
     .from("document_versions")
     .select("version_number")
@@ -29,25 +50,18 @@ async function createVersion(
     .limit(1);
 
   const versionNumber = (existing?.[0]?.version_number ?? 0) + 1;
-  let storageUrl: string;
 
-  if (isStorageConfigured()) {
-    const key = documentKey(documentId, versionNumber, filename);
-    storageUrl = await uploadText(key, content);
-  } else {
-    storageUrl = inlineStorageUrl(documentId, versionNumber);
-  }
-
+  // AI drafts are markdown — store inline so generation never depends on S3.
   const { data: version, error } = await supabase
     .from("document_versions")
     .insert({
       document_id: documentId,
       version_number: versionNumber,
-      storage_url: storageUrl,
-      change_summary: isStorageConfigured() ? changeSummary : content,
+      storage_url: inlineStorageUrl(documentId, versionNumber),
+      change_summary: content,
       created_by_id: userId,
     })
-    .select("*")
+    .select("id")
     .single();
 
   if (error) throw new Error(error.message);
@@ -56,8 +70,6 @@ async function createVersion(
     .from("documents")
     .update({ current_version_id: version.id })
     .eq("id", documentId);
-
-  return version as DocumentVersion;
 }
 
 export async function createAiDocumentShell(
@@ -77,6 +89,8 @@ export async function createAiDocumentShell(
       owner_id: profileId,
       created_by: profileId,
       ai_generated: true,
+      ai_generation_status: AI_GENERATION_STATUS.pending,
+      ai_generation_error: null,
     })
     .select("id")
     .single();
@@ -102,7 +116,7 @@ export async function generateAiDocumentVersion(
     .single();
 
   if (docError || !doc) throw new Error("Document not found");
-  if (doc.owner_id !== profileId) throw new Error("Not authorized");
+  if (profileId && doc.owner_id !== profileId) throw new Error("Not authorized");
 
   const { data: existingVersions } = await supabase
     .from("document_versions")
@@ -111,52 +125,44 @@ export async function generateAiDocumentVersion(
     .limit(1);
 
   if ((existingVersions?.length ?? 0) > 0) {
+    await supabase
+      .from("documents")
+      .update({ ai_generation_status: AI_GENERATION_STATUS.ready, ai_generation_error: null })
+      .eq("id", documentId);
     return documentId;
   }
 
-  let orgName: string | undefined;
-  let dealName: string | undefined;
+  try {
+    const { organizationName, dealName } = await resolveContext(supabase, params);
 
-  if (params.organization_id) {
-    const { data } = await supabase
-      .from("organizations")
-      .select("name")
-      .eq("id", params.organization_id)
-      .single();
-    orgName = data?.name;
+    const brandedContent = await generateBrandedDraft({
+      documentType: params.document_type,
+      title: params.title,
+      organizationName,
+      dealName,
+      keyTerms: params.key_terms,
+      additionalContext: params.additional_context,
+    });
+
+    await storeDraftVersion(supabase, documentId, doc.owner_id, brandedContent);
+
+    await supabase
+      .from("documents")
+      .update({ ai_generation_status: AI_GENERATION_STATUS.ready, ai_generation_error: null })
+      .eq("id", documentId);
+
+    return documentId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI draft generation failed";
+    await supabase
+      .from("documents")
+      .update({
+        ai_generation_status: AI_GENERATION_STATUS.error,
+        ai_generation_error: message.slice(0, 500),
+      })
+      .eq("id", documentId);
+    throw err;
   }
-  if (params.deal_id) {
-    const { data } = await supabase
-      .from("deals")
-      .select("name")
-      .eq("id", params.deal_id)
-      .single();
-    dealName = data?.name;
-  }
-
-  const draftContent = await generateDocumentDraft({
-    documentType: params.document_type,
-    organizationName: orgName,
-    dealName: dealName,
-    keyTerms: params.key_terms,
-    additionalContext: params.additional_context,
-  });
-
-  const brandedContent = applyDocumentBranding(draftContent, {
-    title: params.title,
-    documentTypeLabel: labelFor(DOCUMENT_TYPES, params.document_type),
-  });
-
-  await createVersion(
-    supabase,
-    documentId,
-    profileId,
-    brandedContent,
-    "AI-generated draft (Claude)",
-    "draft.md"
-  );
-
-  return documentId;
 }
 
 export async function createAiDocumentDraft(

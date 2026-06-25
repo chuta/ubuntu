@@ -11,7 +11,10 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@anthropic-ai/sdk"]
+  external_node_modules = ["@anthropic-ai/sdk", "@supabase/supabase-js"]
 
+# Synchronous functions (incl. the Next.js server handler used for the inline
+# AI-draft fallback) get the max synchronous budget. Long AI generation runs in
+# the `generate-draft-background` background function (15-minute limit).
 [functions."*"]
   timeout = 60

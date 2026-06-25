@@ -68,6 +68,23 @@ export function DocumentForm({
     }
   }
 
+  async function pollDraftStatus(documentId: string): Promise<"ready" | "error" | "timeout"> {
+    const deadline = Date.now() + 180_000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 3_000));
+      const res = await fetch(`/api/documents/${documentId}/draft-status`, {
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => ({}));
+      if (data.status === "ready") return "ready";
+      if (data.status === "error") {
+        throw new Error(data.error ?? "AI draft generation failed");
+      }
+    }
+    return "timeout";
+  }
+
   async function requestAiDraft(params: AiDraftParams) {
     const startRes = await fetch("/api/documents/ai-draft", {
       method: "POST",
@@ -79,22 +96,14 @@ export function DocumentForm({
       throw new Error(startData.error ?? "Could not start AI draft");
     }
 
-    const generateRes = await fetch("/api/documents/ai-draft", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phase: "generate",
-        documentId: startData.documentId,
-        ...params,
-      }),
-      signal: AbortSignal.timeout(120_000),
-    });
-    const generateData = await generateRes.json().catch(() => ({}));
-    if (!generateRes.ok) {
-      throw new Error(generateData.error ?? "AI draft generation failed");
-    }
+    const documentId = startData.documentId as string;
+    if (startData.status === "ready") return documentId;
 
-    return generateData.documentId as string;
+    setAiStatus("Generating draft with Claude… this can take up to a minute.");
+    // On timeout the draft is still generating server-side; the document page
+    // shows live status, so navigate there rather than failing.
+    await pollDraftStatus(documentId);
+    return documentId;
   }
 
   async function handleAiSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -113,7 +122,6 @@ export function DocumentForm({
       additional_context: (fd.get("additional_context") as string) || undefined,
     };
     try {
-      setAiStatus("Generating draft with Claude… this can take up to a minute.");
       const id = await requestAiDraft(params);
       router.push(`/documents/${id}`);
       router.refresh();

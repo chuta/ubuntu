@@ -48,6 +48,8 @@ export type Document = {
   expiration_date: string | null;
   signed_date: string | null;
   ai_generated: boolean;
+  ai_generation_status?: string | null;
+  ai_generation_error?: string | null;
   created_at: string;
   updated_at: string;
   organization?: DocumentLink | null;
