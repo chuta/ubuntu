@@ -2,7 +2,7 @@
 
 import { createClient, getProfile } from "@/lib/supabase/server";
 import { SELECT } from "@/lib/supabase/embeds";
-import { createAiDocumentDraft } from "@/lib/documents/create-ai-draft";
+import { createAiDocument, createManualDocument } from "@/lib/documents/document-service";
 import type { Document, DocumentStatus, DocumentType, DocumentVersion } from "@/types/documents";
 import { revalidatePath } from "next/cache";
 
@@ -15,6 +15,7 @@ export type DocumentFormData = {
   partnership_id?: string;
   effective_date?: string;
   expiration_date?: string;
+  content?: string;
 };
 
 export type AiDraftParams = {
@@ -82,29 +83,21 @@ export async function createDocument(data: DocumentFormData) {
   const profile = await getProfile();
   if (!profile) throw new Error("Not authenticated");
 
-  const { data: doc, error } = await supabase
-    .from("documents")
-    .insert({
-      title: data.title,
-      document_type: data.document_type,
-      status: data.status,
-      organization_id: data.organization_id || null,
-      deal_id: data.deal_id || null,
-      partnership_id: data.partnership_id || null,
-      effective_date: data.effective_date || null,
-      expiration_date: data.expiration_date || null,
-      owner_id: profile.id,
-      created_by: profile.id,
-      ai_generated: false,
-    })
-    .select("id")
-    .single();
-
-  if (error) throw new Error(error.message);
+  const documentId = await createManualDocument(supabase, profile.id, {
+    title: data.title,
+    document_type: data.document_type,
+    status: data.status,
+    organization_id: data.organization_id,
+    deal_id: data.deal_id,
+    partnership_id: data.partnership_id,
+    effective_date: data.effective_date,
+    expiration_date: data.expiration_date,
+    content: data.content,
+  });
 
   revalidatePath("/documents");
   revalidatePath("/dashboard");
-  return doc.id;
+  return documentId;
 }
 
 export async function createDocumentWithAiDraft(params: AiDraftParams) {
@@ -112,7 +105,7 @@ export async function createDocumentWithAiDraft(params: AiDraftParams) {
   const profile = await getProfile();
   if (!profile) throw new Error("Not authenticated");
 
-  const documentId = await createAiDocumentDraft(supabase, profile.id, params);
+  const documentId = await createAiDocument(supabase, profile.id, params);
 
   revalidatePath("/documents");
   revalidatePath("/dashboard");

@@ -15,7 +15,7 @@ import {
 } from "@/lib/actions/documents";
 import { DOCUMENT_STATUSES, DOCUMENT_TYPES } from "@/lib/constants/documents";
 import type { Document } from "@/types/documents";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 
 type LinkOptions = {
   organizations: { id: string; name: string }[];
@@ -35,7 +35,6 @@ export function DocumentForm({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [aiStatus, setAiStatus] = useState<string | null>(null);
   const [mode, setMode] = useState<"manual" | "ai">(aiMode ? "ai" : "manual");
 
   async function handleManualSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -52,6 +51,7 @@ export function DocumentForm({
       partnership_id: (fd.get("partnership_id") as string) || undefined,
       effective_date: (fd.get("effective_date") as string) || undefined,
       expiration_date: (fd.get("expiration_date") as string) || undefined,
+      content: (fd.get("content") as string) || undefined,
     };
     try {
       if (document) {
@@ -68,28 +68,10 @@ export function DocumentForm({
     }
   }
 
-  async function requestAiDraft(params: AiDraftParams) {
-    const startRes = await fetch("/api/documents/ai-draft", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phase: "start", ...params }),
-    });
-    const startData = await startRes.json().catch(() => ({}));
-    if (!startRes.ok) {
-      throw new Error(startData.error ?? "Could not start AI draft");
-    }
-
-    // The document page renders live generation status (and self-heals via a
-    // synchronous fallback), so navigate there as soon as the shell exists —
-    // whether generation is already done or still running in the background.
-    return startData.documentId as string;
-  }
-
   async function handleAiSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setAiStatus("Creating document record…");
     const fd = new FormData(e.currentTarget);
     const params: AiDraftParams = {
       title: fd.get("title") as string,
@@ -100,14 +82,36 @@ export function DocumentForm({
       key_terms: (fd.get("key_terms") as string) || undefined,
       additional_context: (fd.get("additional_context") as string) || undefined,
     };
+
     try {
-      setAiStatus("Generating draft with Claude…");
-      const id = await requestAiDraft(params);
-      router.push(`/documents/${id}`);
-      router.refresh();
+      const res = await fetch("/api/documents/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase: "create", ...params }),
+        // A little headroom over the server's 55s Claude timeout.
+        signal: AbortSignal.timeout(70_000),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "AI draft generation failed");
+      }
+      // Even on a generation error the shell exists; the document page shows the
+      // error and a retry. Navigate there in all non-fatal cases.
+      if (data.documentId) {
+        router.push(`/documents/${data.documentId}`);
+        router.refresh();
+        return;
+      }
+      throw new Error(data.error ?? "AI draft generation failed");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "AI draft failed");
-      setAiStatus(null);
+      const message =
+        err instanceof Error && err.name === "TimeoutError"
+          ? "Generation took too long. Please try again with a shorter brief."
+          : err instanceof Error
+            ? err.message
+            : "AI draft failed";
+      setError(message);
       setLoading(false);
     }
   }
@@ -193,7 +197,19 @@ export function DocumentForm({
                 </Select>
               </FormField>
               {linkFields}
+              <FormField label="Content (Markdown)" htmlFor="content" className="sm:col-span-2">
+                <Textarea
+                  id="content"
+                  name="content"
+                  rows={8}
+                  placeholder="Leave blank to start from a branded template for the selected type, or paste your own markdown here."
+                />
+              </FormField>
             </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Ubuntu Tribe letterhead and footer are applied automatically. Word types export as
+              DOCX; Investor Decks and Government Briefs export as PPTX.
+            </p>
           </section>
           <Button type="submit" disabled={loading}>{loading ? "Creating…" : "Create Document"}</Button>
         </form>
@@ -203,8 +219,7 @@ export function DocumentForm({
           <section className="rounded-xl border border-brand-purple/20 bg-brand-purple/5 p-6">
             <p className="mb-4 text-sm text-brand-purple">
               Claude generates a branded draft and saves it as version 1. Word documents export as
-              DOCX; Investor Decks and Government Briefs export as PPTX — both with Ubuntu Tribe
-              styling. Run <code className="text-xs">npm run qa:office -- file.pptx</code> to validate exports locally.
+              DOCX; Investor Decks and Government Briefs export as PPTX — both with Ubuntu Tribe styling.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="Title" htmlFor="title" required className="sm:col-span-2">
@@ -225,8 +240,17 @@ export function DocumentForm({
             </div>
           </section>
           <Button type="submit" disabled={loading}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            {loading ? (aiStatus ?? "Generating draft…") : "Generate & Save Draft"}
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating draft… up to a minute
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Generate &amp; Save Draft
+              </>
+            )}
           </Button>
         </form>
       )}

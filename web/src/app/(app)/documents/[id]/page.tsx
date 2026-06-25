@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProfile } from "@/lib/supabase/server";
 import { getDocument, getDocumentVersions } from "@/lib/actions/documents";
+import { loadDocumentVersionContent } from "@/lib/documents/version-content";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { DocumentDetailSummary, VersionPanel } from "@/components/documents/document-detail";
+import { BrandedDocumentPreview } from "@/components/documents/branded-document-preview";
 import { DraftGenerationStatus } from "@/components/documents/draft-generation-status";
 import { DeleteDocumentButton } from "@/components/documents/delete-document-button";
 import { ArrowLeft, Pencil } from "lucide-react";
@@ -22,6 +24,18 @@ export default async function DocumentDetailPage({
   ]);
 
   if (!document) notFound();
+
+  // Render the latest version's content inline so a finished document is
+  // immediately visible (and confirms generation actually worked).
+  const latestVersion = versions[0] ?? null;
+  let latestContent: string | null = null;
+  if (latestVersion) {
+    try {
+      latestContent = await loadDocumentVersionContent(latestVersion);
+    } catch {
+      latestContent = null;
+    }
+  }
 
   return (
     <>
@@ -50,6 +64,14 @@ export default async function DocumentDetailPage({
               initialStatus={document.ai_generation_status}
               initialError={document.ai_generation_error}
             />
+          )}
+          {latestContent && (
+            <section className="rounded-xl border border-gray-200 bg-white p-5">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900">
+                Document Preview · v{latestVersion?.version_number}
+              </h3>
+              <BrandedDocumentPreview content={latestContent} />
+            </section>
           )}
           <VersionPanel documentId={id} documentType={document.document_type} versions={versions} />
         </div>

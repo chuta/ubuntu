@@ -1,15 +1,14 @@
 /**
- * Self-contained AI draft generation core.
- *
- * IMPORTANT: This module must use ONLY npm imports (no `@/` path aliases) so it
- * can be bundled by both the Next.js runtime and the standalone Netlify
- * background function (`netlify/functions/generate-draft-background.mts`),
- * which imports it via a relative path and cannot resolve TS path aliases.
+ * AI draft generation core — Claude prompt building, branding, and
+ * non-AI template skeletons. Runs synchronously inside the Next.js runtime.
  */
 import Anthropic from "@anthropic-ai/sdk";
 
-export const AI_DRAFT_MODEL = "claude-sonnet-4-6";
+/** Model is overridable via env so a bad/renamed model is a one-line fix. */
+export const AI_DRAFT_MODEL = process.env.ANTHROPIC_DRAFT_MODEL ?? "claude-sonnet-4-5";
 export const AI_DRAFT_MAX_TOKENS = 4096;
+/** Keep under the 60s serverless budget so we return a clean error, not a 504. */
+export const AI_DRAFT_TIMEOUT_MS = 55_000;
 
 const BRAND = {
   name: "Ubuntu Tribe",
@@ -176,15 +175,30 @@ export async function generateDraftBody(input: DraftInput): Promise<string> {
     throw new Error("Anthropic API key not configured. Add ANTHROPIC_API_KEY to .env");
   }
 
-  const client = new Anthropic({ apiKey, timeout: 120_000, maxRetries: 1 });
-  const message = await client.messages.create({
-    model: AI_DRAFT_MODEL,
-    max_tokens: AI_DRAFT_MAX_TOKENS,
-    messages: [{ role: "user", content: buildPrompt(input) }],
-  });
+  const client = new Anthropic({ apiKey, timeout: AI_DRAFT_TIMEOUT_MS, maxRetries: 0 });
+
+  let message;
+  try {
+    message = await client.messages.create({
+      model: AI_DRAFT_MODEL,
+      max_tokens: AI_DRAFT_MAX_TOKENS,
+      messages: [{ role: "user", content: buildPrompt(input) }],
+    });
+  } catch (err) {
+    if (err instanceof Anthropic.APIError) {
+      throw new Error(
+        `Claude request failed (${err.status ?? "network"}): ${err.message}. Model: ${AI_DRAFT_MODEL}`
+      );
+    }
+    if (err instanceof Error && err.name === "APIConnectionTimeoutError") {
+      throw new Error("Claude timed out. Try a shorter brief or retry.");
+    }
+    throw err;
+  }
 
   const block = message.content[0];
   if (!block || block.type !== "text") throw new Error("Unexpected AI response format");
+  if (!block.text.trim()) throw new Error("Claude returned an empty draft");
   return block.text;
 }
 
@@ -192,4 +206,105 @@ export async function generateDraftBody(input: DraftInput): Promise<string> {
 export async function generateBrandedDraft(input: DraftInput): Promise<string> {
   const body = await generateDraftBody(input);
   return brandDraft(body, { title: input.title, documentType: input.documentType });
+}
+
+/**
+ * Non-AI starter body for a document type — used for manual creation and as a
+ * deterministic fallback. Decks use ---SLIDE--- so the PPTX exporter parses them.
+ */
+export function buildTemplateBody(input: DraftInput): string {
+  const org = input.organizationName?.trim() || "[Counterparty]";
+  const deal = input.dealName?.trim();
+  const terms = input.keyTerms?.trim();
+  const context = input.additionalContext?.trim();
+
+  if (isPresentationType(input.documentType)) {
+    const isGov = input.documentType === "GOVERNMENT_BRIEF";
+    return [
+      `# ${input.title}`,
+      isGov
+        ? "Sovereign tokenization partnership briefing"
+        : "Investor opportunity overview",
+      "",
+      "---SLIDE---",
+      "## The Opportunity",
+      `- Partner: ${org}`,
+      deal ? `- Engagement: ${deal}` : "- Engagement: [Deal / programme]",
+      "- Ubuntu Tribe connects trusted physical gold with modern digital tools",
+      "**STAT:** $300M+",
+      "**LABEL:** GIFT trading volume to date",
+      "",
+      "---SLIDE---",
+      "## Why Ubuntu Tribe",
+      "- GIFT: gold-backed digital access",
+      "- UbuntuVerse: ecosystem for value and opportunity",
+      "- Ubuntu Capital & Academy: financing and capability building",
+      terms ? `- Proposed terms: ${terms}` : "- Proposed terms: [revenue share, exclusivity]",
+      "",
+      "---SLIDE---",
+      "## Proposed Partnership Model",
+      "- Phase 1: Framework & regulatory alignment",
+      "- Phase 2: Pilot deployment",
+      "- Phase 3: Scale across territory",
+      context ? `- Context: ${context}` : "",
+      "",
+      "---SLIDE---",
+      "## Next Steps",
+      "- Align on scope and timeline",
+      "- Confirm regulatory pathway",
+      "- Schedule working session",
+      "**Speaker notes:** Tailor figures and commitments before sharing externally.",
+    ]
+      .filter((l) => l !== "")
+      .join("\n");
+  }
+
+  const typeLabel = documentTypeLabel(input.documentType);
+  const lines = [
+    `# ${input.title}`,
+    "",
+    "## Parties",
+    `- **Ubuntu Tribe** (Ophir Ubuntu International Ltd)`,
+    `- **${org}**`,
+    "",
+    "## Purpose",
+    `This ${typeLabel} sets out the understanding between the parties regarding ${
+      deal ? `the ${deal} engagement` : "the proposed engagement"
+    }.`,
+    "",
+    "## Scope",
+    "- [Describe the scope of work, products, or collaboration]",
+    "- Ubuntu Tribe capabilities: GIFT, Utribe Wallet, UbuntuVerse",
+    "",
+    "## Key Terms",
+    terms ? `- ${terms.split("\n").join("\n- ")}` : "- [List the key commercial terms]",
+    "",
+    "## Term & Termination",
+    "- Effective date: [DATE]",
+    "- Duration: [TERM]",
+    "",
+  ];
+
+  if (context) {
+    lines.push("## Additional Context", context, "");
+  }
+
+  lines.push(
+    "## Signatures",
+    "| Ubuntu Tribe | " + org + " |",
+    "|--------------|" + "-".repeat(Math.max(org.length, 10)) + "|",
+    "| Name: ________ | Name: ________ |",
+    "| Title: ________ | Title: ________ |",
+    "| Date: ________ | Date: ________ |"
+  );
+
+  return lines.join("\n");
+}
+
+/** Branded starter document (letterhead + template body + footer). */
+export function buildBrandedTemplate(input: DraftInput): string {
+  return brandDraft(buildTemplateBody(input), {
+    title: input.title,
+    documentType: input.documentType,
+  });
 }
