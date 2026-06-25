@@ -63,9 +63,9 @@ export default async (req: Request) => {
     return new Response("documentId and params required", { status: 400 });
   }
 
-  const supabase = serviceClient();
-
   try {
+    const supabase = serviceClient();
+
     const { data: doc, error: docError } = await supabase
       .from("documents")
       .select("id, owner_id")
@@ -134,10 +134,16 @@ export default async (req: Request) => {
       .eq("id", documentId);
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI draft generation failed";
-    await supabase
-      .from("documents")
-      .update({ ai_generation_status: STATUS.error, ai_generation_error: message.slice(0, 500) })
-      .eq("id", documentId);
+    // Best-effort: record the failure so the client stops polling and can retry.
+    try {
+      await serviceClient()
+        .from("documents")
+        .update({ ai_generation_status: STATUS.error, ai_generation_error: message.slice(0, 500) })
+        .eq("id", documentId);
+    } catch {
+      // No DB access (e.g. missing service credentials) — the client-side
+      // polling cap and synchronous fallback will surface/handle this.
+    }
   }
 
   // Background functions ignore the return value; client polls for status.

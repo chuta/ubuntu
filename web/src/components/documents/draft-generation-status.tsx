@@ -23,61 +23,106 @@ export function DraftGenerationStatus({
   const [error, setError] = useState<string | null>(initialError ?? null);
   const [retrying, setRetrying] = useState(false);
   const stopped = useRef(false);
+  const fallbackFired = useRef(false);
 
-  const check = useCallback(async () => {
-    const res = await fetch(`/api/documents/${documentId}/draft-status`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return;
-    const data = await res.json().catch(() => ({}));
-    if (data.status === "ready") {
-      setStatus("ready");
-      stopped.current = true;
-      router.refresh();
-    } else if (data.status === "error") {
-      setStatus("error");
-      setError(data.error ?? "Generation failed");
-    } else {
-      setStatus("pending");
-    }
-  }, [documentId, router]);
+  // Poll cadence: every 3s, auto-fallback to synchronous generation after the
+  // background job has had ~24s, and give up polling after ~150s.
+  const POLL_MS = 3_000;
+  const FALLBACK_AFTER = 8;
+  const MAX_ATTEMPTS = 50;
+
+  const runGeneration = useCallback(
+    async (mode: "fallback" | "retry") => {
+      if (mode === "fallback") {
+        if (fallbackFired.current) return;
+        fallbackFired.current = true;
+      }
+      try {
+        const res = await fetch("/api/documents/ai-draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "generate", documentId }),
+          signal: AbortSignal.timeout(90_000),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          stopped.current = true;
+          setStatus("error");
+          setError(data.error ?? "Generation failed");
+          return;
+        }
+        if (data.status === "ready") {
+          stopped.current = true;
+          setStatus("ready");
+          router.refresh();
+        }
+      } catch {
+        // A fallback timeout is non-fatal — polling continues. A manual retry
+        // surfaces the failure to the user.
+        if (mode === "retry") {
+          setStatus("error");
+          setError("Generation timed out. Please try again.");
+        }
+      }
+    },
+    [documentId, router]
+  );
+
+  const check = useCallback(
+    async (attempt: number) => {
+      const res = await fetch(`/api/documents/${documentId}/draft-status`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      if (data.status === "ready") {
+        stopped.current = true;
+        setStatus("ready");
+        router.refresh();
+        return;
+      }
+      if (data.status === "error") {
+        stopped.current = true;
+        setStatus("error");
+        setError(data.error ?? "Generation failed");
+        return;
+      }
+      // Still pending — kick off the synchronous fallback once the background
+      // job has had a fair chance, and stop polling after the cap.
+      if (attempt >= FALLBACK_AFTER) void runGeneration("fallback");
+      if (attempt >= MAX_ATTEMPTS) {
+        stopped.current = true;
+        setStatus("error");
+        setError("Generation is taking longer than expected. Please retry.");
+      }
+    },
+    [documentId, router, runGeneration]
+  );
 
   useEffect(() => {
     if (status === "error") return;
     stopped.current = false;
-    void check();
+    let attempt = 0;
+    void check(attempt);
     const timer = setInterval(() => {
-      if (stopped.current) return;
-      void check();
-    }, 4_000);
+      if (stopped.current) {
+        clearInterval(timer);
+        return;
+      }
+      attempt += 1;
+      void check(attempt);
+    }, POLL_MS);
     return () => clearInterval(timer);
   }, [check, status]);
 
   async function handleRetry() {
     setRetrying(true);
     setError(null);
+    fallbackFired.current = false;
+    stopped.current = false;
     setStatus("pending");
-    try {
-      const res = await fetch("/api/documents/ai-draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: "retry", documentId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setStatus("error");
-        setError(data.error ?? "Retry failed");
-        return;
-      }
-      if (data.status === "ready") {
-        router.refresh();
-      }
-    } catch {
-      setStatus("error");
-      setError("Retry failed");
-    } finally {
-      setRetrying(false);
-    }
+    await runGeneration("retry");
+    setRetrying(false);
   }
 
   if (status === "ready") return null;

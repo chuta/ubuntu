@@ -49,7 +49,12 @@ function parseParams(body: Record<string, unknown>): AiDraftParams {
   };
 }
 
-/** Fire the background function; resolves true if it accepted the job (202). */
+/**
+ * Fire the background function. Resolves true ONLY when Netlify accepts the
+ * async job with a real 202 — a 200/3xx/404 means we are not actually running
+ * as a background function, so we must fall back to synchronous generation
+ * rather than leaving the document stuck in PENDING.
+ */
 async function triggerBackground(
   origin: string,
   payload: { documentId: string; profileId: string; params: AiDraftParams }
@@ -64,30 +69,49 @@ async function triggerBackground(
       body: JSON.stringify({ ...payload, token }),
       signal: AbortSignal.timeout(8_000),
     });
-    return res.status === 202 || res.ok;
+    return res.status === 202;
   } catch {
     return false;
   }
 }
 
-/**
- * Offload generation to the background function; if that is unavailable
- * (e.g. local `next dev`), generate inline as a fallback.
- */
-async function offloadOrInline(
+/** Generate synchronously within the function budget and mark the result. */
+async function generateInline(
   supabase: Supabase,
-  origin: string,
   profileId: string,
   documentId: string,
   params: AiDraftParams
-): Promise<"pending" | "ready"> {
-  const offloaded = await triggerBackground(origin, { documentId, profileId, params });
-  if (offloaded) return "pending";
-
+) {
   await generateAiDocumentVersion(supabase, profileId, documentId, params);
+  revalidatePath("/documents");
   revalidatePath(`/documents/${documentId}`);
   revalidatePath("/dashboard");
-  return "ready";
+}
+
+/** Reconstruct draft params from a stored document row (for retry/fallback). */
+async function paramsFromDocument(
+  supabase: Supabase,
+  documentId: string,
+  profileId: string,
+  body: Record<string, unknown>
+): Promise<AiDraftParams> {
+  const { data: doc, error } = await supabase
+    .from("documents")
+    .select("id, title, document_type, organization_id, deal_id, partnership_id, owner_id")
+    .eq("id", documentId)
+    .single();
+  if (error || !doc) throw new Error("Document not found");
+  if (doc.owner_id !== profileId) throw new Error("Not authorized");
+
+  return {
+    title: doc.title,
+    document_type: doc.document_type as AiDraftParams["document_type"],
+    organization_id: doc.organization_id ?? undefined,
+    deal_id: doc.deal_id ?? undefined,
+    partnership_id: doc.partnership_id ?? undefined,
+    key_terms: str(body.key_terms),
+    additional_context: str(body.additional_context),
+  };
 }
 
 export async function POST(request: Request) {
@@ -110,73 +134,52 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // `generate`/`retry` both mean: generate synchronously for an existing
+  // document, reconstructing params from the row. This is the reliable path
+  // the client falls back to (and the retry button uses) when the background
+  // job is slow or unavailable.
   const phase =
-    body.phase === "generate" || body.phase === "retry" ? body.phase : "start";
+    body.phase === "generate" || body.phase === "retry" ? "generate" : "start";
 
   try {
     const supabase = await createClient();
     const origin = resolveOrigin(request);
 
-    // Synchronous (in-request) generation for an existing shell — used as a
-    // local/dev path and as a last-resort retry.
     if (phase === "generate") {
       const documentId = str(body.documentId);
       if (!documentId) {
         return NextResponse.json({ error: "documentId is required" }, { status: 400 });
       }
-      const params = parseParams(body);
-      const id = await generateAiDocumentVersion(supabase, profile.id, documentId, params);
-      revalidatePath("/documents");
-      revalidatePath(`/documents/${id}`);
-      revalidatePath("/dashboard");
-      return NextResponse.json({ documentId: id, status: "ready" });
-    }
 
-    // Retry generation for an existing document, reconstructing params from the row.
-    if (phase === "retry") {
-      const documentId = str(body.documentId);
-      if (!documentId) {
-        return NextResponse.json({ error: "documentId is required" }, { status: 400 });
-      }
-
-      const { data: doc, error } = await supabase
-        .from("documents")
-        .select("id, title, document_type, organization_id, deal_id, partnership_id, owner_id")
-        .eq("id", documentId)
-        .single();
-      if (error || !doc) {
-        return NextResponse.json({ error: "Document not found" }, { status: 404 });
-      }
-      if (doc.owner_id !== profile.id) {
-        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-      }
+      const params = await paramsFromDocument(supabase, documentId, profile.id, body);
 
       await supabase
         .from("documents")
         .update({ ai_generation_status: AI_GENERATION_STATUS.pending, ai_generation_error: null })
         .eq("id", documentId);
 
-      const params: AiDraftParams = {
-        title: doc.title,
-        document_type: doc.document_type as AiDraftParams["document_type"],
-        organization_id: doc.organization_id ?? undefined,
-        deal_id: doc.deal_id ?? undefined,
-        partnership_id: doc.partnership_id ?? undefined,
-        key_terms: str(body.key_terms),
-        additional_context: str(body.additional_context),
-      };
-
-      const status = await offloadOrInline(supabase, origin, profile.id, documentId, params);
-      return NextResponse.json({ documentId, status });
+      await generateInline(supabase, profile.id, documentId, params);
+      return NextResponse.json({ documentId, status: "ready" });
     }
 
-    // Start: create the shell quickly, then offload generation.
+    // Start: create the shell quickly, then try to offload generation to the
+    // background function. Only a real 202 counts as offloaded; otherwise we
+    // generate inline so the document never gets stuck in PENDING.
     const params = parseParams(body);
     const documentId = await createAiDocumentShell(supabase, profile.id, params);
     revalidatePath("/documents");
 
-    const status = await offloadOrInline(supabase, origin, profile.id, documentId, params);
-    return NextResponse.json({ documentId, status });
+    const offloaded = await triggerBackground(origin, {
+      documentId,
+      profileId: profile.id,
+      params,
+    });
+    if (offloaded) {
+      return NextResponse.json({ documentId, status: "pending" });
+    }
+
+    await generateInline(supabase, profile.id, documentId, params);
+    return NextResponse.json({ documentId, status: "ready" });
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI draft failed";
     const status =
