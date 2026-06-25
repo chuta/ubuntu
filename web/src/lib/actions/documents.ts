@@ -2,15 +2,7 @@
 
 import { createClient, getProfile } from "@/lib/supabase/server";
 import { SELECT } from "@/lib/supabase/embeds";
-import { generateDocumentDraft } from "@/lib/ai/draft-document";
-import { applyDocumentBranding } from "@/lib/documents/branded-markdown";
-import { labelFor, DOCUMENT_TYPES } from "@/lib/constants/documents";
-import {
-  documentKey,
-  inlineStorageUrl,
-  isStorageConfigured,
-  uploadText,
-} from "@/lib/s3/storage";
+import { createAiDocumentDraft } from "@/lib/documents/create-ai-draft";
 import type { Document, DocumentStatus, DocumentType, DocumentVersion } from "@/types/documents";
 import { revalidatePath } from "next/cache";
 
@@ -34,53 +26,6 @@ export type AiDraftParams = {
   key_terms?: string;
   additional_context?: string;
 };
-
-async function createVersion(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  documentId: string,
-  userId: string,
-  content: string,
-  changeSummary: string,
-  filename: string
-): Promise<DocumentVersion> {
-  const { data: existing } = await supabase
-    .from("document_versions")
-    .select("version_number")
-    .eq("document_id", documentId)
-    .order("version_number", { ascending: false })
-    .limit(1);
-
-  const versionNumber = (existing?.[0]?.version_number ?? 0) + 1;
-  let storageUrl: string;
-
-  if (isStorageConfigured()) {
-    const key = documentKey(documentId, versionNumber, filename);
-    storageUrl = await uploadText(key, content);
-  } else {
-    storageUrl = inlineStorageUrl(documentId, versionNumber);
-  }
-
-  const { data: version, error } = await supabase
-    .from("document_versions")
-    .insert({
-      document_id: documentId,
-      version_number: versionNumber,
-      storage_url: storageUrl,
-      change_summary: isStorageConfigured() ? changeSummary : content,
-      created_by_id: userId,
-    })
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  await supabase
-    .from("documents")
-    .update({ current_version_id: version.id })
-    .eq("id", documentId);
-
-  return version as DocumentVersion;
-}
 
 export async function getDocuments(filters?: {
   document_type?: string;
@@ -167,61 +112,11 @@ export async function createDocumentWithAiDraft(params: AiDraftParams) {
   const profile = await getProfile();
   if (!profile) throw new Error("Not authenticated");
 
-  let orgName: string | undefined;
-  let dealName: string | undefined;
-
-  if (params.organization_id) {
-    const { data } = await supabase.from("organizations").select("name").eq("id", params.organization_id).single();
-    orgName = data?.name;
-  }
-  if (params.deal_id) {
-    const { data } = await supabase.from("deals").select("name").eq("id", params.deal_id).single();
-    dealName = data?.name;
-  }
-
-  const draftContent = await generateDocumentDraft({
-    documentType: params.document_type,
-    organizationName: orgName,
-    dealName: dealName,
-    keyTerms: params.key_terms,
-    additionalContext: params.additional_context,
-  });
-
-  const brandedContent = applyDocumentBranding(draftContent, {
-    title: params.title,
-    documentTypeLabel: labelFor(DOCUMENT_TYPES, params.document_type),
-  });
-
-  const { data: doc, error } = await supabase
-    .from("documents")
-    .insert({
-      title: params.title,
-      document_type: params.document_type,
-      status: "DRAFT",
-      organization_id: params.organization_id || null,
-      deal_id: params.deal_id || null,
-      partnership_id: params.partnership_id || null,
-      owner_id: profile.id,
-      created_by: profile.id,
-      ai_generated: true,
-    })
-    .select("id")
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  await createVersion(
-    supabase,
-    doc.id,
-    profile.id,
-    brandedContent,
-    "AI-generated draft (Claude)",
-    "draft.md"
-  );
+  const documentId = await createAiDocumentDraft(supabase, profile.id, params);
 
   revalidatePath("/documents");
   revalidatePath("/dashboard");
-  return doc.id;
+  return documentId;
 }
 
 export async function updateDocument(id: string, data: DocumentFormData) {

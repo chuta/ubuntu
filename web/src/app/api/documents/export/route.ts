@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getDocumentVersions, getVersionContent } from "@/lib/actions/documents";
+import { getDocumentVersions } from "@/lib/actions/documents";
+import { loadDocumentVersionContent } from "@/lib/documents/version-content";
 import { buildBrandedDocumentDocx } from "@/lib/docx/branded-document";
 import { preferredExportFormat } from "@/lib/documents/format-routing";
 import { buildBrandedPresentationPptx } from "@/lib/pptx/branded-presentation";
-import { getObjectText, isInlineStorage, isStorageConfigured } from "@/lib/s3/storage";
 import { labelFor, DOCUMENT_TYPES } from "@/lib/constants/documents";
 import type { OfficeExportFormat } from "@/lib/documents/format-routing";
 
@@ -24,13 +24,7 @@ async function loadVersionMarkdown(
   const version = versions.find((v) => v.id === versionId);
   if (!version) throw new Error("Version not found");
 
-  let content: string | null = null;
-  if (isInlineStorage(version.storage_url)) {
-    content = await getVersionContent(version);
-  } else if (isStorageConfigured()) {
-    content = await getObjectText(version.storage_url);
-  }
-  if (!content) throw new Error("Could not load document content");
+  const content = await loadDocumentVersionContent(version);
 
   return {
     content,
@@ -104,6 +98,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Export failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message === "Document not found" || message === "Version not found" ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

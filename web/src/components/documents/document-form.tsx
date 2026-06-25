@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
 import {
   createDocument,
-  createDocumentWithAiDraft,
   updateDocument,
   type DocumentFormData,
   type AiDraftParams,
@@ -36,6 +35,7 @@ export function DocumentForm({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
   const [mode, setMode] = useState<"manual" | "ai">(aiMode ? "ai" : "manual");
 
   async function handleManualSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -68,10 +68,40 @@ export function DocumentForm({
     }
   }
 
+  async function requestAiDraft(params: AiDraftParams) {
+    const startRes = await fetch("/api/documents/ai-draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phase: "start", ...params }),
+    });
+    const startData = await startRes.json().catch(() => ({}));
+    if (!startRes.ok) {
+      throw new Error(startData.error ?? "Could not start AI draft");
+    }
+
+    const generateRes = await fetch("/api/documents/ai-draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phase: "generate",
+        documentId: startData.documentId,
+        ...params,
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    const generateData = await generateRes.json().catch(() => ({}));
+    if (!generateRes.ok) {
+      throw new Error(generateData.error ?? "AI draft generation failed");
+    }
+
+    return generateData.documentId as string;
+  }
+
   async function handleAiSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setAiStatus("Creating document record…");
     const fd = new FormData(e.currentTarget);
     const params: AiDraftParams = {
       title: fd.get("title") as string,
@@ -83,11 +113,13 @@ export function DocumentForm({
       additional_context: (fd.get("additional_context") as string) || undefined,
     };
     try {
-      const id = await createDocumentWithAiDraft(params);
+      setAiStatus("Generating draft with Claude… this can take up to a minute.");
+      const id = await requestAiDraft(params);
       router.push(`/documents/${id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI draft failed");
+      setAiStatus(null);
       setLoading(false);
     }
   }
@@ -206,7 +238,7 @@ export function DocumentForm({
           </section>
           <Button type="submit" disabled={loading}>
             <Sparkles className="mr-2 h-4 w-4" />
-            {loading ? "Generating draft…" : "Generate & Save Draft"}
+            {loading ? (aiStatus ?? "Generating draft…") : "Generate & Save Draft"}
           </Button>
         </form>
       )}

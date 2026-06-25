@@ -22,7 +22,10 @@ export async function generateDocumentDraft(params: {
     throw new Error("Anthropic API key not configured. Add ANTHROPIC_API_KEY to .env");
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    timeout: 90_000,
+  });
   const typeLabel = labelFor(DOCUMENT_TYPES, params.documentType);
 
   const formatGuide = aiDraftGuidelines(params.documentType);

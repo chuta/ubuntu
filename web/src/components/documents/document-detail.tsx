@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { labelFor, DOCUMENT_STATUSES, DOCUMENT_TYPES, documentStatusVariant } from "@/lib/constants/documents";
+import { isTextDocumentStorage } from "@/lib/documents/version-content";
 import { isInlineStorage } from "@/lib/s3/storage";
 import type { Document, DocumentVersion } from "@/types/documents";
 import { Download, Eye, FileText, Presentation, Sparkles } from "lucide-react";
@@ -68,31 +69,45 @@ export function VersionPanel({
   const isDeck = isPresentationDocumentType(documentType);
   const officeFormat = preferredExportFormat(documentType);
 
+  function filenameFromDisposition(res: Response, fallback: string) {
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    return match?.[1] ?? fallback;
+  }
+
+  async function fetchVersionMarkdown(version: DocumentVersion) {
+    const res = await fetch("/api/documents/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentId, versionId: version.id, format: "md" }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Could not load document");
+    }
+    return {
+      text: await res.text(),
+      filename: filenameFromDisposition(res, `document-v${version.version_number}.md`),
+    };
+  }
+
+  function downloadText(text: string, filename: string) {
+    const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function loadPreview(version: DocumentVersion) {
     setLoading(`preview-${version.id}`);
     try {
-      if (isInlineStorage(version.storage_url)) {
-        const res = await fetch("/api/files", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ operation: "download", documentId, versionId: version.id }),
-        });
-        const data = await res.json();
-        if (data.inline && data.content) setPreview(data.content);
-        else alert(data.error ?? "Preview failed");
-        return;
-      }
-      const res = await fetch("/api/documents/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId, versionId: version.id, format: "md" }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Preview failed");
-        return;
-      }
-      setPreview(await res.text());
+      const { text } = await fetchVersionMarkdown(version);
+      setPreview(text);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Preview failed");
     } finally {
       setLoading(null);
     }
@@ -157,19 +172,25 @@ export function VersionPanel({
   async function handleDownload(version: DocumentVersion) {
     setLoading(version.id);
     try {
+      if (isTextDocumentStorage(version.storage_url)) {
+        const { text, filename } = await fetchVersionMarkdown(version);
+        downloadText(text, filename);
+        return;
+      }
+
       const res = await fetch("/api/files", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operation: "download", documentId, versionId: version.id }),
       });
       const data = await res.json();
-      if (data.inline && data.content) {
-        setPreview(data.content);
-      } else if (data.url) {
+      if (data.url) {
         window.open(data.url, "_blank");
       } else {
         alert(data.error ?? "Download failed");
       }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Download failed");
     } finally {
       setLoading(null);
     }

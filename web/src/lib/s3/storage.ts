@@ -66,22 +66,52 @@ export async function getPresignedUploadUrl(key: string, contentType: string, ex
   return { url, storageUrl: `s3://${BUCKET}/${key}`, key };
 }
 
-export async function getPresignedDownloadUrl(storageUrl: string, expiresIn = 3600) {
-  const key = parseS3Key(storageUrl);
-  if (!key) throw new Error("Invalid storage URL");
-  const s3 = getClient();
-  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
-  return getSignedUrl(s3, command, { expiresIn });
-}
-
-export function parseS3Key(storageUrl: string): string | null {
+/** Parse bucket + object key from s3:// or virtual-host/path-style HTTPS URLs. */
+export function parseS3Location(storageUrl: string): { bucket: string; key: string } | null {
   if (storageUrl.startsWith("s3://")) {
     const withoutScheme = storageUrl.slice(5);
     const slash = withoutScheme.indexOf("/");
-    if (slash === -1) return null;
-    return withoutScheme.slice(slash + 1);
+    if (slash <= 0) return null;
+    return {
+      bucket: withoutScheme.slice(0, slash),
+      key: withoutScheme.slice(slash + 1),
+    };
   }
+
+  try {
+    const url = new URL(storageUrl);
+    const virtualHost = url.hostname.match(/^(.+)\.s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com$/i);
+    if (virtualHost) {
+      const key = url.pathname.replace(/^\/+/, "");
+      return key ? { bucket: virtualHost[1], key } : null;
+    }
+
+    if (url.hostname.startsWith("s3.") && url.pathname.length > 1) {
+      const parts = url.pathname.replace(/^\/+/, "").split("/");
+      if (parts.length >= 2) {
+        return { bucket: parts[0], key: parts.slice(1).join("/") };
+      }
+    }
+  } catch {
+    return null;
+  }
+
   return null;
+}
+
+export function parseS3Key(storageUrl: string): string | null {
+  return parseS3Location(storageUrl)?.key ?? null;
+}
+
+export async function getPresignedDownloadUrl(storageUrl: string, expiresIn = 3600) {
+  const location = parseS3Location(storageUrl);
+  if (!location) throw new Error("Invalid storage URL");
+  const s3 = getClient();
+  const command = new GetObjectCommand({
+    Bucket: location.bucket,
+    Key: location.key,
+  });
+  return getSignedUrl(s3, command, { expiresIn });
 }
 
 /** Inline storage when S3 is unavailable (dev / AI drafts) */
@@ -94,10 +124,15 @@ export function exportKey(userId: string, filename: string) {
 }
 
 export async function getObjectText(storageUrl: string): Promise<string> {
-  const key = parseS3Key(storageUrl);
-  if (!key) throw new Error("Invalid storage URL");
+  const location = parseS3Location(storageUrl);
+  if (!location) throw new Error("Invalid storage URL");
   const s3 = getClient();
-  const obj = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+  const obj = await s3.send(
+    new GetObjectCommand({
+      Bucket: location.bucket,
+      Key: location.key,
+    })
+  );
   return obj.Body?.transformToString("utf-8") ?? "";
 }
 

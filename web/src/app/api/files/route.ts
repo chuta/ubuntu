@@ -5,14 +5,18 @@ import {
   getPresignedUploadUrl,
   isStorageConfigured,
   isInlineStorage,
-  parseS3Key,
+  parseS3Location,
 } from "@/lib/s3/storage";
-import { getDocumentVersions, getVersionContent } from "@/lib/actions/documents";
+import { getDocumentVersions } from "@/lib/actions/documents";
+import {
+  isTextDocumentStorage,
+  loadDocumentVersionContent,
+} from "@/lib/documents/version-content";
 
 export async function GET() {
   return NextResponse.json({
     configured: isStorageConfigured(),
-    bucket: process.env.AWS_S3_BUCKET_NAME ?? null,
+    bucket: process.env.AWS_S3_BUCKET_NAME ?? process.env.AWS_S3_BUCKET ?? null,
     ai: Boolean(process.env.ANTHROPIC_API_KEY),
   });
 }
@@ -23,7 +27,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { operation, key, contentType, storageUrl, versionId } = body;
+  const { operation, key, contentType, storageUrl, versionId, documentId } = body;
 
   if (operation === "upload") {
     if (!isStorageConfigured()) {
@@ -38,27 +42,60 @@ export async function POST(request: Request) {
 
   if (operation === "download") {
     if (versionId) {
-      const versions = await getDocumentVersions(body.documentId);
+      if (!documentId) {
+        return NextResponse.json({ error: "documentId required" }, { status: 400 });
+      }
+
+      const versions = await getDocumentVersions(documentId);
       const version = versions.find((v) => v.id === versionId);
       if (!version) return NextResponse.json({ error: "Version not found" }, { status: 404 });
 
-      if (isInlineStorage(version.storage_url)) {
-        const content = await getVersionContent(version);
-        return NextResponse.json({ inline: true, content, filename: "draft.md" });
+      if (isTextDocumentStorage(version.storage_url)) {
+        try {
+          const content = await loadDocumentVersionContent(version);
+          return NextResponse.json({
+            inline: true,
+            content,
+            filename: `document-v${version.version_number}.md`,
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Download unavailable";
+          return NextResponse.json({ error: message }, { status: 500 });
+        }
       }
 
-      if (!isStorageConfigured() || !parseS3Key(version.storage_url)) {
+      if (isInlineStorage(version.storage_url)) {
         return NextResponse.json({ error: "Download unavailable" }, { status: 503 });
       }
-      const url = await getPresignedDownloadUrl(version.storage_url);
-      return NextResponse.json({ url, filename: `v${version.version_number}.md` });
+
+      if (!isStorageConfigured() || !parseS3Location(version.storage_url)) {
+        return NextResponse.json({ error: "Download unavailable" }, { status: 503 });
+      }
+
+      try {
+        const url = await getPresignedDownloadUrl(version.storage_url);
+        return NextResponse.json({ url, filename: `v${version.version_number}` });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Download unavailable";
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
     }
 
     if (!storageUrl || !isStorageConfigured()) {
       return NextResponse.json({ error: "Download unavailable" }, { status: 503 });
     }
-    const url = await getPresignedDownloadUrl(storageUrl);
-    return NextResponse.json({ url });
+
+    if (!parseS3Location(storageUrl)) {
+      return NextResponse.json({ error: "Invalid storage URL" }, { status: 400 });
+    }
+
+    try {
+      const url = await getPresignedDownloadUrl(storageUrl);
+      return NextResponse.json({ url });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Download unavailable";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ error: "Invalid operation" }, { status: 400 });
