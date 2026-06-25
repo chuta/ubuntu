@@ -1,15 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { initSession } from "@/lib/session/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-6">
+      <p className="text-sm text-gray-500">Loading sign in…</p>
+    </div>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionNotice =
+    searchParams.get("reason") === "idle_timeout"
+      ? "You were signed out after being inactive."
+      : searchParams.get("reason") === "session_expired"
+        ? "Your session reached its time limit. Please sign in again."
+        : searchParams.get("reason") === "session_refresh_failed"
+          ? "We could not restore your session. Please sign in again."
+          : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +58,7 @@ export default function LoginPage() {
       return;
     }
 
+    initSession();
     router.push("/dashboard");
     router.refresh();
   }
@@ -66,6 +93,10 @@ export default function LoginPage() {
             <h2 className="text-2xl font-semibold text-gray-900">Sign in</h2>
             <p className="mt-1 text-sm text-gray-500">Access your commercial operating system</p>
           </div>
+
+          {sessionNotice && (
+            <p className="mt-6 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{sessionNotice}</p>
+          )}
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             <div>

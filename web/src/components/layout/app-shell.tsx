@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { MobileNavProvider, useMobileNav } from "@/components/layout/mobile-nav-context";
+import { SessionManager } from "@/components/auth/session-manager";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types/database";
 
@@ -65,7 +66,10 @@ function AppShellFrame({ profile, children }: { profile: Profile; children: Reac
 
       <MobileNavDrawer profile={profile} />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {children}
+        <SessionManager />
+      </div>
     </div>
   );
 }

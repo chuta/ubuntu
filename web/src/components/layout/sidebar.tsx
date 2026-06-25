@@ -7,8 +7,7 @@ import { mainNavigation, secondaryNavigation } from "@/lib/constants/navigation"
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types/database";
 import { LogOut, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { signOutUser } from "@/lib/session/sign-out";
 
 export function Sidebar({
   profile,
@@ -22,14 +21,10 @@ export function Sidebar({
   className?: string;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
     onNavigate?.();
-    router.push("/login");
-    router.refresh();
+    await signOutUser();
   }
 
   function handleLinkClick() {
