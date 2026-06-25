@@ -12,6 +12,8 @@ import {
   applyDocumentBranding,
 } from "@/lib/documents/branded-markdown";
 import {
+  AI_DRAFT_MODEL,
+  AI_DRAFT_MAX_TOKENS,
   buildBrandedTemplate,
   generateBrandedDraft,
   isAiConfigured,
@@ -232,7 +234,12 @@ export async function generateAiContent(
   documentId: string,
   input: AiDocumentInput
 ): Promise<void> {
-  log("ai:start", { documentId, type: input.document_type, model: process.env.ANTHROPIC_DRAFT_MODEL });
+  log("ai:start", {
+    documentId,
+    type: input.document_type,
+    model: AI_DRAFT_MODEL,
+    maxTokens: AI_DRAFT_MAX_TOKENS,
+  });
 
   if (!isAiConfigured()) {
     await setStatus(supabase, documentId, AI_GENERATION_STATUS.error, "AI is not configured");

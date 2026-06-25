@@ -357,10 +357,36 @@ function markdownToBlocks(markdown: string): (Paragraph | Table)[] {
   return out;
 }
 
+/**
+ * Strip the Ubuntu Tribe letterhead and footer from a branded markdown draft,
+ * leaving only the body. The branding wraps the body in horizontal rules:
+ *
+ *   ---            (rule 1)  brand block
+ *   ---            (rule 2)  document metadata (Document/Type/Date/Classification)
+ *   ---            (rule 3)  <body>
+ *   ---            (last)    footer block
+ *
+ * So the body is everything between the 3rd and the last standalone `---`.
+ * Table separators (`|---|`) and deck delimiters (`---SLIDE---`) are not bare
+ * `---` lines, so they are never mistaken for letterhead rules.
+ */
 export function extractDocumentBody(brandedMarkdown: string): string {
+  const lines = brandedMarkdown.split("\n");
+  const ruleIdx: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === "---") ruleIdx.push(i);
+  }
+
+  if (ruleIdx.length >= 4) {
+    const start = ruleIdx[2] + 1; // after the 3rd rule (end of metadata block)
+    const end = ruleIdx[ruleIdx.length - 1]; // last rule (start of footer)
+    return lines.slice(start, end).join("\n").trim();
+  }
+
+  // Fallback for unbranded or unexpectedly-shaped content.
   const parts = brandedMarkdown.split("\n---\n");
   if (parts.length >= 3) {
-    return parts.slice(1, -1).join("\n---\n").trim();
+    return parts.slice(2, -1).join("\n---\n").trim();
   }
   return brandedMarkdown.trim();
 }

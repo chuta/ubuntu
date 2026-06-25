@@ -6,7 +6,12 @@ import Anthropic from "@anthropic-ai/sdk";
 
 /** Model is overridable via env so a bad/renamed model is a one-line fix. */
 export const AI_DRAFT_MODEL = process.env.ANTHROPIC_DRAFT_MODEL ?? "claude-sonnet-4-5";
-export const AI_DRAFT_MAX_TOKENS = 4096;
+/**
+ * Token cap drives generation time. 4096 tokens did not finish inside the 60s
+ * serverless budget; ~2600 keeps a quality first draft well under it. Tunable
+ * via env without a redeploy.
+ */
+export const AI_DRAFT_MAX_TOKENS = Number(process.env.ANTHROPIC_DRAFT_MAX_TOKENS) || 2600;
 /** Keep under the 60s serverless budget so we return a clean error, not a 504. */
 export const AI_DRAFT_TIMEOUT_MS = 55_000;
 
@@ -177,29 +182,34 @@ export async function generateDraftBody(input: DraftInput): Promise<string> {
 
   const client = new Anthropic({ apiKey, timeout: AI_DRAFT_TIMEOUT_MS, maxRetries: 0 });
 
+  // Stream the completion: keeps the connection active (avoids long single-poll
+  // timeouts) and lets us assemble text as it arrives within the budget.
   let message;
   try {
-    message = await client.messages.create({
-      model: AI_DRAFT_MODEL,
-      max_tokens: AI_DRAFT_MAX_TOKENS,
-      messages: [{ role: "user", content: buildPrompt(input) }],
-    });
+    message = await client.messages
+      .stream({
+        model: AI_DRAFT_MODEL,
+        max_tokens: AI_DRAFT_MAX_TOKENS,
+        messages: [{ role: "user", content: buildPrompt(input) }],
+      })
+      .finalMessage();
   } catch (err) {
     if (err instanceof Anthropic.APIError) {
       throw new Error(
         `Claude request failed (${err.status ?? "network"}): ${err.message}. Model: ${AI_DRAFT_MODEL}`
       );
     }
-    if (err instanceof Error && err.name === "APIConnectionTimeoutError") {
-      throw new Error("Claude timed out. Try a shorter brief or retry.");
+    if (err instanceof Error && /timeout/i.test(err.name + err.message)) {
+      throw new Error("Claude timed out. Try a shorter brief or reduce ANTHROPIC_DRAFT_MAX_TOKENS.");
     }
     throw err;
   }
 
-  const block = message.content[0];
-  if (!block || block.type !== "text") throw new Error("Unexpected AI response format");
-  if (!block.text.trim()) throw new Error("Claude returned an empty draft");
-  return block.text;
+  const text = message.content
+    .map((block) => (block.type === "text" ? block.text : ""))
+    .join("");
+  if (!text.trim()) throw new Error("Claude returned an empty draft");
+  return text;
 }
 
 /** Calls Claude and returns the branded, ready-to-store markdown draft. */
