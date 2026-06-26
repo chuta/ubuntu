@@ -84,33 +84,57 @@ export function DocumentForm({
     };
 
     try {
-      const res = await fetch("/api/documents/ai-draft", {
+      // 1. Create the shell — fast, returns immediately.
+      const createRes = await fetch("/api/documents/ai-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phase: "create", ...params }),
-        // A little headroom over the server's 55s Claude timeout.
-        signal: AbortSignal.timeout(70_000),
       });
-      const data = await res.json().catch(() => ({}));
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createData.documentId) {
+        throw new Error(createData.error ?? "Could not start AI draft");
+      }
+      const documentId = createData.documentId as string;
 
-      if (!res.ok) {
-        throw new Error(data.error ?? "AI draft generation failed");
+      // 2. Kick off generation. We intentionally do NOT depend on this response:
+      //    an upstream gateway can sever the ~50s request even though the
+      //    function keeps running and saves the draft. The status poll below is
+      //    the real source of truth.
+      fetch("/api/documents/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phase: "generate",
+          documentId,
+          key_terms: params.key_terms,
+          additional_context: params.additional_context,
+        }),
+      }).catch(() => {});
+
+      // 3. Poll the backend status until it reaches a terminal state.
+      const deadline = Date.now() + 150_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const status = await fetch(`/api/documents/${documentId}/draft-status`, {
+          cache: "no-store",
+        })
+          .then((r) => r.json())
+          .catch(() => null);
+        if (!status) continue;
+        if (status.status === "ready") {
+          router.push(`/documents/${documentId}`);
+          router.refresh();
+          return;
+        }
+        if (status.status === "error") {
+          throw new Error(status.error ?? "AI draft generation failed");
+        }
       }
-      // Even on a generation error the shell exists; the document page shows the
-      // error and a retry. Navigate there in all non-fatal cases.
-      if (data.documentId) {
-        router.push(`/documents/${data.documentId}`);
-        router.refresh();
-        return;
-      }
-      throw new Error(data.error ?? "AI draft generation failed");
+      throw new Error(
+        "Generation is taking longer than expected. Open the document to check or retry."
+      );
     } catch (err) {
-      const message =
-        err instanceof Error && err.name === "TimeoutError"
-          ? "Generation took too long. Please try again with a shorter brief."
-          : err instanceof Error
-            ? err.message
-            : "AI draft failed";
+      const message = err instanceof Error ? err.message : "AI draft failed";
       setError(message);
       setLoading(false);
     }

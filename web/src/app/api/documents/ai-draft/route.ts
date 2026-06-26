@@ -3,7 +3,6 @@ import { revalidatePath } from "next/cache";
 import { createClient, getProfile } from "@/lib/supabase/server";
 import {
   createAiDocumentShell,
-  generateAiContent,
   regenerateAiDocument,
   type AiDocumentInput,
 } from "@/lib/documents/document-service";
@@ -62,38 +61,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const phase = body.phase === "retry" ? "retry" : "create";
+  // "create" only builds the shell and returns instantly. Generation runs in
+  // "generate"/"retry", which the document page drives while polling status —
+  // so a gateway-severed generation request never shows a false failure.
+  const phase =
+    body.phase === "generate" || body.phase === "retry" ? "generate" : "create";
   const supabase = await createClient();
 
   try {
-    if (phase === "retry") {
-      const documentId = str(body.documentId);
-      if (!documentId) {
-        return NextResponse.json({ error: "documentId is required" }, { status: 400 });
-      }
-      await regenerateAiDocument(supabase, profile.id, documentId, {
-        key_terms: str(body.key_terms),
-        additional_context: str(body.additional_context),
-      });
+    if (phase === "create") {
+      const input = parseInput(body);
+      const documentId = await createAiDocumentShell(supabase, profile.id, input);
       revalidatePath("/documents");
-      revalidatePath(`/documents/${documentId}`);
-      revalidatePath("/dashboard");
-      return NextResponse.json({ documentId, status: "ready" });
+      return NextResponse.json({ documentId, status: "pending" });
     }
 
-    // Create the shell first so a generation failure still leaves a recoverable
-    // record (the document page offers a retry).
-    const input = parseInput(body);
-    const documentId = await createAiDocumentShell(supabase, profile.id, input);
-
-    try {
-      await generateAiContent(supabase, profile.id, documentId, input);
-    } catch (genErr) {
-      const message = genErr instanceof Error ? genErr.message : "AI draft generation failed";
-      // Shell exists + status is ERROR; client navigates and can retry.
-      return NextResponse.json({ documentId, status: "error", error: message }, { status: 200 });
+    // generate / retry: run generation synchronously for an existing shell.
+    const documentId = str(body.documentId);
+    if (!documentId) {
+      return NextResponse.json({ error: "documentId is required" }, { status: 400 });
     }
-
+    await regenerateAiDocument(supabase, profile.id, documentId, {
+      key_terms: str(body.key_terms),
+      additional_context: str(body.additional_context),
+    });
     revalidatePath("/documents");
     revalidatePath(`/documents/${documentId}`);
     revalidatePath("/dashboard");

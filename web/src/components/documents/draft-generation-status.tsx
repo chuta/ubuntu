@@ -7,8 +7,9 @@ import { AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
 
 /**
  * Recovery panel for an AI document that has no content version yet
- * (e.g. a generation that errored or was interrupted). Generation runs
- * synchronously on click — no polling.
+ * (e.g. a generation that errored or was interrupted). Clicking kicks off
+ * generation and then polls backend status — the poll is the source of truth,
+ * so a gateway-severed generation request never shows a false failure.
  */
 export function DraftGenerationStatus({
   documentId,
@@ -29,24 +30,34 @@ export function DraftGenerationStatus({
     setWorking(true);
     setError(null);
     try {
-      const res = await fetch("/api/documents/ai-draft", {
+      // Kick off generation without depending on its (possibly severed) response.
+      fetch("/api/documents/ai-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: "retry", documentId }),
-        signal: AbortSignal.timeout(70_000),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.status === "error") {
-        setError(data.error ?? "Generation failed");
-        return;
+        body: JSON.stringify({ phase: "generate", documentId }),
+      }).catch(() => {});
+
+      const deadline = Date.now() + 150_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const status = await fetch(`/api/documents/${documentId}/draft-status`, {
+          cache: "no-store",
+        })
+          .then((r) => r.json())
+          .catch(() => null);
+        if (!status) continue;
+        if (status.status === "ready") {
+          router.refresh();
+          return;
+        }
+        if (status.status === "error") {
+          setError(status.error ?? "Generation failed");
+          return;
+        }
       }
-      router.refresh();
-    } catch (err) {
-      setError(
-        err instanceof Error && err.name === "TimeoutError"
-          ? "Generation took too long. Please try again."
-          : "Generation failed. Please try again."
-      );
+      setError("Generation is taking longer than expected. Please try again.");
+    } catch {
+      setError("Generation failed. Please try again.");
     } finally {
       setWorking(false);
     }
