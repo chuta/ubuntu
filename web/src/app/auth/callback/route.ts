@@ -4,9 +4,8 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 
 function resolveNext(raw: string | null, type: string | null): string {
   let next = raw ?? "/dashboard";
-  // Legacy misconfigured path from earlier deploys
-  if (next === "/auth/set-password") next = "/set-password";
-  if (type === "invite" || type === "recovery") return "/set-password";
+  if (next === "/auth/set-password" || next === "/set-password") next = "/join";
+  if (type === "invite" || type === "recovery") return "/join";
   return next;
 }
 

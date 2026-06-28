@@ -28,9 +28,9 @@ export function TeamTable({ members, currentUserId }: { members: TeamMember[]; c
     setBusyId(member.id);
     startTransition(async () => {
       try {
-        const { link } = await resendInvite(member.id);
+        const result = await resendInvite(member.id);
         setResentId(member.id);
-        if (link) setInviteLink(link);
+        if (!result.emailSent && result.inviteUrl) setInviteLink(result.inviteUrl);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not resend the invite");

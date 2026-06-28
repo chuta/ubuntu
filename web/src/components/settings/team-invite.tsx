@@ -19,6 +19,7 @@ export function TeamInvite() {
   const [role, setRole] = useState<UserRole>("COMMERCIAL");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [fallbackLink, setFallbackLink] = useState<string | null>(null);
 
   const activeRole = ASSIGNABLE_ROLES.find((r) => r.value === role);
 
@@ -33,11 +34,17 @@ export function TeamInvite() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setFallbackLink(null);
     const invitedEmail = email.trim().toLowerCase();
     startTransition(async () => {
       try {
-        await inviteTeamMember({ email, fullName, role });
-        setSuccess(`Invitation sent to ${invitedEmail}.`);
+        const result = await inviteTeamMember({ email, fullName, role });
+        if (result.emailSent) {
+          setSuccess(`Invitation email sent to ${invitedEmail} from GrowthOS Buddy.`);
+        } else {
+          setSuccess(`Invite created for ${invitedEmail}, but the email could not be sent. Copy the link below.`);
+          setFallbackLink(result.inviteUrl ?? null);
+        }
         reset();
         setOpen(false);
         router.refresh();
@@ -51,13 +58,31 @@ export function TeamInvite() {
     return (
       <div className="space-y-3">
         {success && (
-          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            {success}
+          <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            <p>{success}</p>
+            {fallbackLink && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  readOnly
+                  value={fallbackLink}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="w-full rounded-md border border-green-200 bg-white px-2 py-1.5 text-xs text-gray-700"
+                />
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(fallbackLink)}
+                  className="shrink-0 rounded-md bg-green-700 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-green-800"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
           </div>
         )}
         <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
           <p className="text-sm text-gray-600">
-            Invite a teammate by email. They&apos;ll get a link to set a password and join.
+            Invite a teammate by email. They&apos;ll receive a branded invite from{" "}
+            <span className="font-medium">hello@klarify.africa</span> to set a password and join.
           </p>
           <Button type="button" size="sm" onClick={() => { setOpen(true); setSuccess(null); }}>
             <UserPlus className="mr-1.5 h-4 w-4" /> Invite member

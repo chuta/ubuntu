@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { createClient, getProfile } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { provisionTeamInvite } from "@/lib/team/invite-provision";
 import type { UserRole } from "@/types/database";
 
 export type TeamMember = {
@@ -19,22 +19,6 @@ export type TeamMember = {
   /** Admin invited; password not yet set and first sign-in not completed. */
   pending_invite: boolean;
 };
-
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
-/** Best-effort public origin for building auth redirect links. */
-async function appOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  if (host) return `${proto}://${host}`;
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-}
-
-/** Redirect target after Supabase verifies an invite link. */
-function inviteCallbackUrl(origin: string) {
-  return `${origin}/auth/callback?next=/set-password&type=invite`;
-}
 
 const ASSIGNABLE: UserRole[] = [
   "COMMERCIAL",
@@ -69,54 +53,37 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   })) as TeamMember[];
 }
 
+export type InviteDeliveryResult = {
+  emailSent: boolean;
+  /** Present when Resend failed — admin can copy and share manually. */
+  inviteUrl?: string;
+};
+
 /**
- * Invite a teammate by email. Creates the auth user (Supabase sends the invite
- * email), assigns the chosen role, and leaves the account inactive until they
- * set a password and sign in for the first time.
+ * Invite a teammate. Supabase generates the auth link; Resend delivers the email.
+ * Account stays inactive until the invitee sets a password and signs in.
  */
 export async function inviteTeamMember(input: {
   email: string;
   fullName: string;
   role: UserRole;
-}) {
-  await requireAdmin();
-
-  const email = input.email.trim().toLowerCase();
-  const fullName = input.fullName.trim();
-  if (!EMAIL_RE.test(email)) throw new Error("Enter a valid email address");
-  if (!fullName) throw new Error("Enter the person's full name");
+}): Promise<InviteDeliveryResult> {
+  const admin = await requireAdmin();
   if (!ASSIGNABLE.includes(input.role)) throw new Error("Invalid role");
 
-  const admin = createAdminClient();
-  const redirectTo = inviteCallbackUrl(await appOrigin());
-
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { full_name: fullName },
-    redirectTo,
+  const result = await provisionTeamInvite({
+    email: input.email,
+    fullName: input.fullName,
+    role: input.role,
+    inviterName: admin.full_name,
   });
 
-  if (error) {
-    if (/already.*(registered|exist)|been registered/i.test(error.message)) {
-      throw new Error("That email already has an account or a pending invite.");
-    }
-    throw new Error(error.message);
-  }
-
-  const userId = data.user?.id;
-  if (userId) {
-    const { error: updateError } = await admin
-      .from("profiles")
-      .update({
-        role: input.role,
-        full_name: fullName,
-        is_active: false,
-        invited_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-    if (updateError) throw new Error(updateError.message);
-  }
-
   revalidatePath("/settings/team");
+
+  if (!result.emailSent) {
+    return { emailSent: false, inviteUrl: result.inviteUrl };
+  }
+  return { emailSent: true };
 }
 
 /**
@@ -148,51 +115,32 @@ export async function completeInviteLogin(): Promise<{ activated: boolean }> {
   return { activated: true };
 }
 
-/**
- * Re-send an invite. Tries the invite email again; if the user already exists
- * (the usual case for a pending invite), returns a fresh shareable link the
- * admin can copy and send manually — so this works even without project SMTP.
- */
-export async function resendInvite(userId: string): Promise<{ link: string | null }> {
-  await requireAdmin();
+/** Re-send invite email via Resend (fresh Supabase link). */
+export async function resendInvite(userId: string): Promise<InviteDeliveryResult> {
+  const adminProfile = await requireAdmin();
+  const service = createAdminClient();
 
-  const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin
+  const { data: member, error: memberError } = await service
     .from("profiles")
-    .select("email")
+    .select("email, full_name, role")
     .eq("id", userId)
     .single();
-  if (profileError || !profile?.email) throw new Error("User not found");
 
-  const redirectTo = inviteCallbackUrl(await appOrigin());
+  if (memberError || !member?.email) throw new Error("User not found");
 
-  const { error } = await admin.auth.admin.inviteUserByEmail(profile.email, {
-    redirectTo,
+  const result = await provisionTeamInvite({
+    email: member.email,
+    fullName: member.full_name,
+    role: member.role,
+    inviterName: adminProfile.full_name,
   });
-  if (!error) {
-    await admin
-      .from("profiles")
-      .update({ is_active: false, invited_at: new Date().toISOString() })
-      .eq("id", userId);
-    revalidatePath("/settings/team");
-    return { link: null };
-  }
-
-  // User already exists — generate a fresh invite link the admin can share.
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "invite",
-    email: profile.email,
-    options: { redirectTo },
-  });
-  if (linkError) throw new Error(linkError.message);
-
-  await admin
-    .from("profiles")
-    .update({ is_active: false, invited_at: new Date().toISOString() })
-    .eq("id", userId);
 
   revalidatePath("/settings/team");
-  return { link: linkData.properties?.action_link ?? null };
+
+  if (!result.emailSent) {
+    return { emailSent: false, inviteUrl: result.inviteUrl };
+  }
+  return { emailSent: true };
 }
 
 export async function updateUserRole(userId: string, role: UserRole) {

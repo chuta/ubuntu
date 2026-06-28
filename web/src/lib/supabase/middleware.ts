@@ -33,11 +33,12 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register");
 
-  const isSetPassword = request.nextUrl.pathname === "/set-password";
+  const isJoinFlow =
+    request.nextUrl.pathname === "/join" || request.nextUrl.pathname === "/set-password";
 
-  // /auth/* and /set-password must stay reachable for invite onboarding.
+  // /auth/* and /join must stay reachable for invite onboarding.
   const isPublicPath =
-    isAuthPage || request.nextUrl.pathname.startsWith("/auth") || isSetPassword;
+    isAuthPage || request.nextUrl.pathname.startsWith("/auth") || isJoinFlow;
 
   if (!user && !isPublicPath && request.nextUrl.pathname !== "/") {
     const url = request.nextUrl.clone();
@@ -51,9 +52,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Invited users with a session but no password yet should finish on /set-password,
-  // not bounce to the dashboard inactive gate.
-  if (user && !isSetPassword && !isPublicPath && request.nextUrl.pathname !== "/") {
+  // Invited users with a session but no password yet should finish on /join.
+  if (user && !isJoinFlow && !isPublicPath && request.nextUrl.pathname !== "/") {
     const { data: profile } = await supabase
       .from("profiles")
       .select("invited_at, is_active")
@@ -62,7 +62,7 @@ export async function updateSession(request: NextRequest) {
 
     if (profile?.invited_at && !profile.is_active) {
       const url = request.nextUrl.clone();
-      url.pathname = "/set-password";
+      url.pathname = "/join";
       return NextResponse.redirect(url);
     }
   }
