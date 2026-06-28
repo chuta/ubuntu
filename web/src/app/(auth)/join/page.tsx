@@ -3,14 +3,12 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { establishSessionFromUrl } from "@/lib/auth/session-from-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function JoinPage() {
-  const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
@@ -59,16 +57,37 @@ export default function JoinPage() {
     }
 
     setLoading(true);
-    const supabase = createClient();
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) {
-      setError(updateError.message);
-      setLoading(false);
-      return;
-    }
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
 
-    await supabase.auth.signOut();
-    router.push("/login?setup=complete");
+    try {
+      const res = await fetch("/api/auth/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+        signal: controller.signal,
+      });
+
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+
+      if (!res.ok) {
+        setError(payload.error ?? "Could not save your password. Try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Hard navigation clears client auth state; server already signed out cookies.
+      window.location.assign("/login?setup=complete");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Saving timed out. Check your connection and try again.");
+      } else {
+        setError(err instanceof Error ? err.message : "Could not save your password.");
+      }
+      setLoading(false);
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
   }
 
   return (
