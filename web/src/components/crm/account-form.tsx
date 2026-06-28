@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
-import { createAccount, updateAccount, type AccountFormData } from "@/lib/actions/accounts";
+import type { AccountFormData } from "@/lib/actions/accounts";
 import {
   ACCOUNT_SUBTYPES,
   GIFT_ADOPTION,
@@ -63,13 +63,26 @@ export function AccountForm({ territories, organization }: Props) {
     };
 
     try {
-      if (organization) {
-        await updateAccount(organization.id, data);
-        router.push(`/accounts/${organization.id}`);
-      } else {
-        const id = await createAccount(data);
-        router.push(`/accounts/${id}`);
+      const res = organization
+        ? await fetch(`/api/accounts/${organization.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
+        : await fetch("/api/accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof payload.error === "string" ? payload.error : "Something went wrong"
+        );
       }
+
+      router.push(`/accounts/${payload.id ?? organization?.id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

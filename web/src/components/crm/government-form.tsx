@@ -7,11 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
-import {
-  createGovernment,
-  updateGovernment,
-  type GovernmentFormData,
-} from "@/lib/actions/governments";
+import type { GovernmentFormData } from "@/lib/actions/governments";
 import {
   ENGAGEMENT_PRIORITIES,
   GOVERNMENT_LEVELS,
@@ -64,13 +60,26 @@ export function GovernmentForm({ territories, governmentOptions, organization }:
     };
 
     try {
-      if (organization) {
-        await updateGovernment(organization.id, data);
-        router.push(`/governments/${organization.id}`);
-      } else {
-        const id = await createGovernment(data);
-        router.push(`/governments/${id}`);
+      const res = organization
+        ? await fetch(`/api/governments/${organization.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
+        : await fetch("/api/governments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof payload.error === "string" ? payload.error : "Something went wrong"
+        );
       }
+
+      router.push(`/governments/${payload.id ?? organization?.id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
