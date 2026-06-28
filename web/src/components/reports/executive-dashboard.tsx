@@ -20,6 +20,7 @@ import {
   Layers,
   TrendingUp,
   Calendar,
+  AlertTriangle,
 } from "lucide-react";
 
 export function ExecutiveDashboard({
@@ -33,6 +34,7 @@ export function ExecutiveDashboard({
     { label: "Total Pipeline", value: formatCurrency(data.pipeline.totalValue), icon: GitBranch, color: "text-brand-purple" },
     { label: "Weighted Pipeline", value: formatCurrency(data.pipeline.weightedValue), icon: TrendingUp, color: "text-brand-gold" },
     { label: "Active Deals", value: String(data.pipeline.activeDeals), icon: GitBranch, color: "text-brand-purple" },
+    { label: "Flagged Deals", value: String(data.commercialRisks.flaggedDeals), icon: AlertTriangle, color: data.commercialRisks.flaggedDeals > 0 ? "text-amber-600" : "text-gray-400", href: "/pipeline?has_risk=1" },
     { label: "Gov Engagements", value: String(data.governments.activeCount), icon: Landmark, color: "text-brand-gold" },
     { label: "Active Partnerships", value: String(data.partnerships.activeCount), icon: Handshake, color: "text-brand-purple" },
     { label: "Tokenization Projects", value: String(data.tokenization.totalProjects), icon: Layers, color: "text-brand-gold" },
@@ -58,8 +60,8 @@ export function ExecutiveDashboard({
       <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
-          return (
-            <Card key={stat.label}>
+          const card = (
+            <Card className={stat.href ? "h-full transition-shadow hover:shadow-md" : "h-full"}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle>{stat.label}</CardTitle>
                 <Icon className={`h-4 w-4 ${stat.color}`} />
@@ -69,6 +71,13 @@ export function ExecutiveDashboard({
               </CardContent>
             </Card>
           );
+          return stat.href ? (
+            <Link key={stat.label} href={stat.href} className="block">
+              {card}
+            </Link>
+          ) : (
+            <div key={stat.label}>{card}</div>
+          );
         })}
       </div>
 
@@ -77,6 +86,8 @@ export function ExecutiveDashboard({
         <span><strong className="text-brand-gold">{data.pipeline.wonDeals}</strong> won in period</span>
         <span><Calendar className="mr-1 inline h-3.5 w-3.5" />{data.events.count} events · {data.events.leadsCaptured} leads · {data.events.leadsConverted} converted</span>
       </div>
+
+      <CommercialRiskMonitor data={data.commercialRisks} />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>
@@ -200,8 +211,6 @@ export function ExecutiveDashboard({
           </CardContent>
         </Card>
       </div>
-
-      <CommercialRiskMonitor data={data.commercialRisks} />
 
       <Card className="mt-6">
         <CardHeader>
