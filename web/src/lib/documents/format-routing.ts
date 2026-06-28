@@ -11,4 +11,4 @@ export function preferredExportFormat(type: DocumentType | string): "pptx" | "do
   return isPresentationDocumentType(type) ? "pptx" : "docx";
 }
 
-export type OfficeExportFormat = "docx" | "pptx" | "md";
+export type OfficeExportFormat = "docx" | "pptx" | "pdf" | "md";

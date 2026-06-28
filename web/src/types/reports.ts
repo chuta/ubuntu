@@ -1,4 +1,5 @@
 import type { PartnershipOperationsSummary } from "@/lib/partnerships/aggregate";
+import type { DealNudgeSummary } from "@/lib/deal-nudges";
 
 export type DateRangePreset = "week" | "month" | "quarter" | "custom";
 
@@ -80,6 +81,7 @@ export type ExecutiveReportData = {
       stage: string;
     }[];
   };
+  nudges: DealNudgeSummary;
   commercialRisks: {
     flaggedDeals: number;
     byCategory: Record<string, number>;

@@ -16,6 +16,7 @@ import type {
 } from "@/types/pipeline";
 import { validateCommercialRiskInput } from "@/lib/constants/commercial-risks";
 import { computeQualificationScore } from "@/lib/constants/qualification";
+import { computeDealNudges, type DealNudgeType } from "@/lib/deal-nudges";
 import { revalidatePath } from "next/cache";
 import { SELECT } from "@/lib/supabase/embeds";
 
@@ -56,6 +57,8 @@ export type DealFilters = {
   risk_flag?: string;
   risk_severity?: string;
   sort?: string;
+  nudge?: string;
+  organization_id?: string;
 };
 
 function buildQualificationFields(data: DealFormData) {
@@ -146,6 +149,7 @@ export async function getDeals(filters?: DealFilters): Promise<Deal[]> {
   }
 
   if (filters?.stage) query = query.eq("stage", filters.stage);
+  if (filters?.organization_id) query = query.eq("organization_id", filters.organization_id);
   if (filters?.segment) query = query.eq("segment", filters.segment);
   if (filters?.revenue_engine) query = query.eq("revenue_engine", filters.revenue_engine);
   if (filters?.search) query = query.ilike("name", `%${filters.search}%`);
@@ -164,7 +168,38 @@ export async function getDeals(filters?: DealFilters): Promise<Deal[]> {
     deals = deals.filter((d) => (d.commercial_risk_flags?.length ?? 0) > 0);
   }
 
+  if (filters?.nudge) {
+    const wanted = filters.nudge.toUpperCase() as DealNudgeType;
+    const ids = deals.map((d) => d.id);
+    const lastActivityByDeal: Record<string, string> = {};
+    if (ids.length > 0) {
+      const { data: acts } = await supabase
+        .from("activities")
+        .select("deal_id, occurred_at")
+        .in("deal_id", ids)
+        .order("occurred_at", { ascending: false });
+      for (const a of (acts ?? []) as { deal_id: string | null; occurred_at: string }[]) {
+        if (a.deal_id && !lastActivityByDeal[a.deal_id]) {
+          lastActivityByDeal[a.deal_id] = a.occurred_at;
+        }
+      }
+    }
+    deals = deals.filter((d) =>
+      computeDealNudges({
+        stage: d.stage,
+        created_at: d.created_at,
+        last_activity_at: lastActivityByDeal[d.id] ?? null,
+        commercial_risk_review_date: d.commercial_risk_review_date,
+        expected_close_date: d.expected_close_date,
+      }).some((n) => n.type === wanted)
+    );
+  }
+
   return deals.map(normalizeDeal);
+}
+
+export async function getDealsByOrganization(organizationId: string): Promise<Deal[]> {
+  return getDeals({ organization_id: organizationId });
 }
 
 export async function getDeal(id: string): Promise<Deal | null> {

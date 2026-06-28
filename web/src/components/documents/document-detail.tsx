@@ -9,7 +9,7 @@ import { labelFor, DOCUMENT_STATUSES, DOCUMENT_TYPES, documentStatusVariant } fr
 import { isTextDocumentStorage } from "@/lib/documents/version-content";
 import { isInlineStorage } from "@/lib/s3/storage";
 import type { Document, DocumentVersion } from "@/types/documents";
-import { Download, Eye, FileText, Presentation, Sparkles } from "lucide-react";
+import { Download, Eye, FileDown, FileText, Presentation, Sparkles } from "lucide-react";
 import { BrandedDocumentPreview } from "@/components/documents/branded-document-preview";
 import { isPresentationDocumentType, preferredExportFormat } from "@/lib/documents/format-routing";
 import type { DocumentType } from "@/types/documents";
@@ -169,6 +169,34 @@ export function VersionPanel({
     }
   }
 
+  async function handleDownloadPdf(version: DocumentVersion) {
+    setLoading(`pdf-${version.id}`);
+    try {
+      const res = await fetch("/api/documents/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId, versionId: version.id, format: "pdf" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Export failed");
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? `document-v${version.version_number}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setLoading(null);
+    }
+  }
+
   async function handleDownload(version: DocumentVersion) {
     setLoading(version.id);
     try {
@@ -286,6 +314,15 @@ export function VersionPanel({
                     <FileText className="h-4 w-4" />
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  title="Download branded PDF"
+                  onClick={() => handleDownloadPdf(v)}
+                  disabled={loading === `pdf-${v.id}`}
+                >
+                  <FileDown className="h-4 w-4" />
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"

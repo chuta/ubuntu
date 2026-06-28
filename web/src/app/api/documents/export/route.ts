@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getDocumentVersions } from "@/lib/actions/documents";
 import { loadDocumentVersionContent } from "@/lib/documents/version-content";
 import { buildBrandedDocumentDocx } from "@/lib/docx/branded-document";
+import { buildBrandedDocumentPdf } from "@/lib/pdf/branded-document";
 import { preferredExportFormat } from "@/lib/documents/format-routing";
 import { buildBrandedPresentationPptx } from "@/lib/pptx/branded-presentation";
 import { labelFor, DOCUMENT_TYPES } from "@/lib/constants/documents";
@@ -80,6 +81,20 @@ export async function POST(request: Request) {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
           "Content-Disposition": `attachment; filename="${safeFilename(title, versionNumber, "pptx")}"`,
+        },
+      });
+    }
+
+    if (resolvedFormat === "pdf") {
+      const buffer = await buildBrandedDocumentPdf({
+        title,
+        documentTypeLabel: labelFor(DOCUMENT_TYPES, documentType),
+        bodyMarkdown: content,
+      });
+      return new NextResponse(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${safeFilename(title, versionNumber, "pdf")}"`,
         },
       });
     }

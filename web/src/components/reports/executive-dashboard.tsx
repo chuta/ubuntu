@@ -13,6 +13,7 @@ import { B2G_PHASES, phaseLabel } from "@/lib/constants/tokenization";
 import { priorityVariant } from "@/components/ui/badge";
 import type { ExecutiveReportData } from "@/types/reports";
 import { CommercialRiskMonitor } from "@/components/reports/commercial-risk-monitor";
+import { DealNudgesMonitor } from "@/components/reports/deal-nudges-monitor";
 import { PartnershipOperationsMonitor } from "@/components/reports/partnership-operations-monitor";
 import { RegulatoryAffairsMonitor } from "@/components/reports/regulatory-affairs-monitor";
 import { InfluenceCoverageMonitor } from "@/components/reports/influence-coverage-monitor";
@@ -95,6 +96,8 @@ export function ExecutiveDashboard({
         <span><strong className="text-brand-gold">{data.pipeline.wonDeals}</strong> won in period</span>
         <span><Calendar className="mr-1 inline h-3.5 w-3.5" />{data.events.count} events · {data.events.leadsCaptured} leads · {data.events.leadsConverted} converted</span>
       </div>
+
+      <DealNudgesMonitor data={data.nudges} />
 
       <CommercialRiskMonitor data={data.commercialRisks} />
 

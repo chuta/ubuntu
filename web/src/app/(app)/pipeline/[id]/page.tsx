@@ -17,6 +17,8 @@ import { getTokenizationProjectByDeal, getTokenizationProjectOptions } from "@/l
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { DealDetailSummary } from "@/components/pipeline/deal-detail-summary";
+import { DealNudgesBanner } from "@/components/pipeline/deal-nudges-banner";
+import { computeDealNudges } from "@/lib/deal-nudges";
 import { DealCommercialRisksPanel } from "@/components/pipeline/deal-commercial-risks-panel";
 import { DealQualificationPanel } from "@/components/pipeline/deal-qualification-panel";
 import { getCommercialRiskSuggestions } from "@/lib/actions/commercial-risks";
@@ -64,6 +66,13 @@ export default async function DealDetailPage({
   ]);
 
   const deal = dealData;
+  const nudges = computeDealNudges({
+    stage: deal.stage,
+    created_at: deal.created_at,
+    last_activity_at: activities[0]?.occurred_at ?? null,
+    commercial_risk_review_date: deal.commercial_risk_review_date,
+    expected_close_date: deal.expected_close_date,
+  });
 
   return (
     <>
@@ -86,6 +95,7 @@ export default async function DealDetailPage({
         </div>
 
         <div className="space-y-6">
+          <DealNudgesBanner nudges={nudges} />
           <DealDetailSummary deal={deal} />
           <DealQualificationPanel deal={deal} />
           <DealCommercialRisksPanel deal={deal} suggestions={riskSuggestions} />

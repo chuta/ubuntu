@@ -6,6 +6,7 @@ import { resolveDateRange } from "@/lib/constants/reports";
 import { getForecastSummary } from "@/lib/actions/forecasts";
 import { aggregateCommercialRisks } from "@/lib/commercial-risks/aggregate";
 import { aggregatePartnershipOperations } from "@/lib/partnerships/aggregate";
+import { aggregateDealNudges } from "@/lib/deal-nudges";
 import type { DealStage } from "@/types/pipeline";
 import type { B2cCampaignMetric, ExecutiveReportData } from "@/types/reports";
 import { SELECT } from "@/lib/supabase/embeds";
@@ -35,13 +36,14 @@ export async function getExecutiveReportData(params?: {
     regRequirementsResult,
     stakeholderMapsResult,
     influenceRelationshipsResult,
+    dealActivitiesResult,
     b2c,
     forecast,
   ] = await Promise.all([
     supabase
       .from("deals")
       .select(
-        "id, name, stage, segment, revenue_engine, estimated_value, probability, priority, created_at, actual_close_date, commercial_risk_flags, commercial_risk_severity, commercial_risk_review_date"
+        "id, name, stage, segment, revenue_engine, estimated_value, probability, priority, created_at, expected_close_date, actual_close_date, commercial_risk_flags, commercial_risk_severity, commercial_risk_review_date"
       )
       .is("deleted_at", null),
     supabase
@@ -87,6 +89,11 @@ export async function getExecutiveReportData(params?: {
       .select("id, compliance_status, due_date, territory:territories(name)"),
     supabase.from("stakeholder_maps").select("deal_id").not("deal_id", "is", null),
     supabase.from("influence_relationships").select("deal_id").not("deal_id", "is", null),
+    supabase
+      .from("activities")
+      .select("deal_id, occurred_at")
+      .not("deal_id", "is", null)
+      .order("occurred_at", { ascending: false }),
     getB2cMetricsForPeriod(period.from, period.to),
     getForecastSummary(),
   ]);
@@ -256,6 +263,27 @@ export async function getExecutiveReportData(params?: {
   for (const r of (influenceRelationshipsResult.data ?? []) as { deal_id: string | null }[]) {
     if (r.deal_id) mappedDealIds.add(r.deal_id);
   }
+  const lastActivityByDeal: Record<string, string> = {};
+  for (const a of (dealActivitiesResult.data ?? []) as {
+    deal_id: string | null;
+    occurred_at: string;
+  }[]) {
+    if (a.deal_id && !lastActivityByDeal[a.deal_id]) {
+      lastActivityByDeal[a.deal_id] = a.occurred_at;
+    }
+  }
+  const nudges = aggregateDealNudges(
+    openDeals.map((d) => ({
+      id: d.id,
+      name: d.name,
+      stage: d.stage as DealStage,
+      created_at: d.created_at,
+      last_activity_at: lastActivityByDeal[d.id] ?? null,
+      commercial_risk_review_date: d.commercial_risk_review_date ?? null,
+      expected_close_date: (d as { expected_close_date?: string | null }).expected_close_date ?? null,
+    }))
+  );
+
   const activeB2GDeals = openDeals.filter((d) => d.segment === "B2G");
   const mappedB2GDeals = activeB2GDeals.filter((d) => mappedDealIds.has(d.id));
   const influenceCoverage = {
@@ -314,6 +342,7 @@ export async function getExecutiveReportData(params?: {
     b2c,
     regulatory,
     influenceCoverage,
+    nudges,
     commercialRisks,
   };
 }
