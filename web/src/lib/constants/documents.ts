@@ -3,6 +3,7 @@ import type { DocumentStatus, DocumentType } from "@/types/documents";
 export const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
   { value: "NDA", label: "NDA" },
   { value: "MOU", label: "MOU" },
+  { value: "LOI", label: "Letter of Intent" },
   { value: "PROPOSAL", label: "Proposal" },
   { value: "GOVERNMENT_BRIEF", label: "Government Brief" },
   { value: "PARTNERSHIP_AGREEMENT", label: "Partnership Agreement" },

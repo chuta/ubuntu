@@ -30,6 +30,11 @@ export async function getExecutiveReportData(params?: {
     tokenizationResult,
     eventsResult,
     leadsResult,
+    regMeetingsResult,
+    regConsultationsResult,
+    regRequirementsResult,
+    stakeholderMapsResult,
+    influenceRelationshipsResult,
     b2c,
     forecast,
   ] = await Promise.all([
@@ -71,6 +76,17 @@ export async function getExecutiveReportData(params?: {
       .select("id, follow_up_status, created_at")
       .gte("created_at", `${period.from}T00:00:00`)
       .lte("created_at", `${period.to}T23:59:59`),
+    supabase
+      .from("regulatory_meetings")
+      .select("id, status, territory:territories(name)"),
+    supabase
+      .from("regulatory_consultations")
+      .select("id, response_status, response_deadline, territory:territories(name)"),
+    supabase
+      .from("regulatory_requirements")
+      .select("id, compliance_status, due_date, territory:territories(name)"),
+    supabase.from("stakeholder_maps").select("deal_id").not("deal_id", "is", null),
+    supabase.from("influence_relationships").select("deal_id").not("deal_id", "is", null),
     getB2cMetricsForPeriod(period.from, period.to),
     getForecastSummary(),
   ]);
@@ -177,6 +193,83 @@ export async function getExecutiveReportData(params?: {
     }))
   );
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const territoryName = (row: { territory?: unknown }): string => {
+    const t = Array.isArray(row.territory) ? row.territory[0] : row.territory;
+    return (t as { name?: string } | null)?.name ?? "Unassigned";
+  };
+
+  const regMeetings = (regMeetingsResult.data ?? []) as { status: string; territory?: unknown }[];
+  const regConsultations = (regConsultationsResult.data ?? []) as {
+    response_status: string;
+    response_deadline: string | null;
+    territory?: unknown;
+  }[];
+  const regRequirements = (regRequirementsResult.data ?? []) as {
+    compliance_status: string;
+    due_date: string | null;
+    territory?: unknown;
+  }[];
+
+  const isOpenMeeting = (m: { status: string }) => m.status === "SCHEDULED";
+  const isPendingConsultation = (c: { response_status: string }) =>
+    c.response_status === "NOT_STARTED" || c.response_status === "IN_PROGRESS";
+  const isAtRiskRequirement = (r: { compliance_status: string; due_date: string | null }) =>
+    r.compliance_status === "AT_RISK" ||
+    (!!r.due_date &&
+      r.due_date < todayStr &&
+      r.compliance_status !== "MET" &&
+      r.compliance_status !== "NOT_APPLICABLE");
+
+  const regByTerritory: Record<
+    string,
+    { meetings: number; consultations: number; requirements: number }
+  > = {};
+  const bumpTerritory = (name: string, key: "meetings" | "consultations" | "requirements") => {
+    if (!regByTerritory[name]) regByTerritory[name] = { meetings: 0, consultations: 0, requirements: 0 };
+    regByTerritory[name][key] += 1;
+  };
+  for (const m of regMeetings) if (isOpenMeeting(m)) bumpTerritory(territoryName(m), "meetings");
+  for (const c of regConsultations) if (isPendingConsultation(c)) bumpTerritory(territoryName(c), "consultations");
+  for (const r of regRequirements) if (isAtRiskRequirement(r)) bumpTerritory(territoryName(r), "requirements");
+
+  const regulatory = {
+    openMeetings: regMeetings.filter(isOpenMeeting).length,
+    pendingConsultations: regConsultations.filter(isPendingConsultation).length,
+    overdueConsultations: regConsultations.filter(
+      (c) => isPendingConsultation(c) && !!c.response_deadline && c.response_deadline < todayStr
+    ).length,
+    atRiskRequirements: regRequirements.filter(isAtRiskRequirement).length,
+    byTerritory: Object.entries(regByTerritory)
+      .map(([territory, v]) => ({ territory, ...v }))
+      .sort(
+        (a, b) =>
+          b.meetings + b.consultations + b.requirements -
+          (a.meetings + a.consultations + a.requirements)
+      ),
+  };
+
+  const mappedDealIds = new Set<string>();
+  for (const m of (stakeholderMapsResult.data ?? []) as { deal_id: string | null }[]) {
+    if (m.deal_id) mappedDealIds.add(m.deal_id);
+  }
+  for (const r of (influenceRelationshipsResult.data ?? []) as { deal_id: string | null }[]) {
+    if (r.deal_id) mappedDealIds.add(r.deal_id);
+  }
+  const activeB2GDeals = openDeals.filter((d) => d.segment === "B2G");
+  const mappedB2GDeals = activeB2GDeals.filter((d) => mappedDealIds.has(d.id));
+  const influenceCoverage = {
+    totalB2GDeals: activeB2GDeals.length,
+    mappedB2GDeals: mappedB2GDeals.length,
+    coveragePct: activeB2GDeals.length
+      ? Math.round((mappedB2GDeals.length / activeB2GDeals.length) * 100)
+      : 0,
+    unmappedDeals: activeB2GDeals
+      .filter((d) => !mappedDealIds.has(d.id))
+      .slice(0, 5)
+      .map((d) => ({ id: d.id, name: d.name, stage: d.stage })),
+  };
+
   return {
     period,
     generatedAt: new Date().toISOString(),
@@ -219,6 +312,8 @@ export async function getExecutiveReportData(params?: {
       totalBestCase: forecast.totalBestCase,
     },
     b2c,
+    regulatory,
+    influenceCoverage,
     commercialRisks,
   };
 }

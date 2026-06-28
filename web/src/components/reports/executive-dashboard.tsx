@@ -14,6 +14,8 @@ import { priorityVariant } from "@/components/ui/badge";
 import type { ExecutiveReportData } from "@/types/reports";
 import { CommercialRiskMonitor } from "@/components/reports/commercial-risk-monitor";
 import { PartnershipOperationsMonitor } from "@/components/reports/partnership-operations-monitor";
+import { RegulatoryAffairsMonitor } from "@/components/reports/regulatory-affairs-monitor";
+import { InfluenceCoverageMonitor } from "@/components/reports/influence-coverage-monitor";
 import {
   GitBranch,
   Landmark,
@@ -49,13 +51,19 @@ export function ExecutiveDashboard({
   return (
     <>
       {!compact && (
-        <p className="mb-4 text-sm leading-relaxed text-gray-500">
-          Reporting period: <strong className="text-gray-700">{data.period.label}</strong>
-          <span className="block sm:inline">
-            {" "}
-            ({data.period.from} – {data.period.to})
-          </span>
-        </p>
+        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-600">
+          <p>
+            Reporting period: <strong className="text-gray-800">{data.period.label}</strong>
+            <span className="block sm:inline">
+              {" "}
+              ({data.period.from} – {data.period.to})
+            </span>
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Period-scoped: new &amp; won deals, events, leads, and B2C metrics. All other
+            widgets show the current live snapshot.
+          </p>
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-3">
@@ -91,6 +99,10 @@ export function ExecutiveDashboard({
       <CommercialRiskMonitor data={data.commercialRisks} />
 
       <PartnershipOperationsMonitor data={data.partnerships} />
+
+      <RegulatoryAffairsMonitor data={data.regulatory} />
+
+      <InfluenceCoverageMonitor data={data.influenceCoverage} />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>

@@ -33,6 +33,7 @@ export async function getDocuments(filters?: {
   status?: string;
   search?: string;
   partnership_id?: string;
+  organization_id?: string;
 }): Promise<Document[]> {
   const supabase = await createClient();
   let query = supabase
@@ -44,6 +45,7 @@ export async function getDocuments(filters?: {
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.search) query = query.ilike("title", `%${filters.search}%`);
   if (filters?.partnership_id) query = query.eq("partnership_id", filters.partnership_id);
+  if (filters?.organization_id) query = query.eq("organization_id", filters.organization_id);
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -54,14 +56,23 @@ export async function getDocumentsByPartnership(partnershipId: string): Promise<
   return getDocuments({ partnership_id: partnershipId });
 }
 
+export async function getDocumentsByOrganization(organizationId: string): Promise<Document[]> {
+  return getDocuments({ organization_id: organizationId });
+}
+
 function revalidateDocumentLinks(data: {
   partnership_id?: string;
   deal_id?: string;
+  organization_id?: string;
 }) {
   revalidatePath("/documents");
   revalidatePath("/dashboard");
   if (data.partnership_id) revalidatePath(`/partnerships/${data.partnership_id}`);
   if (data.deal_id) revalidatePath(`/pipeline/${data.deal_id}`);
+  if (data.organization_id) {
+    revalidatePath(`/accounts/${data.organization_id}`);
+    revalidatePath(`/governments/${data.organization_id}`);
+  }
 }
 
 export async function getDocument(id: string): Promise<Document | null> {
@@ -114,6 +125,7 @@ export async function createDocument(data: DocumentFormData) {
   revalidateDocumentLinks({
     partnership_id: data.partnership_id,
     deal_id: data.deal_id,
+    organization_id: data.organization_id,
   });
   return documentId;
 }
@@ -128,6 +140,7 @@ export async function createDocumentWithAiDraft(params: AiDraftParams) {
   revalidateDocumentLinks({
     partnership_id: params.partnership_id,
     deal_id: params.deal_id,
+    organization_id: params.organization_id,
   });
   return documentId;
 }

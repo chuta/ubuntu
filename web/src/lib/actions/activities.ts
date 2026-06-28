@@ -15,20 +15,21 @@ export type ActivityFormData = {
   outcome?: string;
 };
 
-function scopeFilter(ctx: WorkspaceContext) {
-  return ctx.kind === "deal"
-    ? { column: "deal_id" as const, value: ctx.id }
-    : { column: "partnership_id" as const, value: ctx.id };
-}
-
 export async function getActivities(ctx: WorkspaceContext): Promise<Activity[]> {
   const supabase = await createClient();
-  const { column, value } = scopeFilter(ctx);
-  const { data, error } = await supabase
+  let query = supabase
     .from("activities")
-    .select("*, logged_by:profiles(full_name)")
-    .eq(column, value)
-    .order("occurred_at", { ascending: false });
+    .select("*, logged_by:profiles(full_name)");
+
+  if (ctx.kind === "deal") query = query.eq("deal_id", ctx.id);
+  else if (ctx.kind === "partnership") query = query.eq("partnership_id", ctx.id);
+  else
+    query = query
+      .eq("organization_id", ctx.id)
+      .is("deal_id", null)
+      .is("partnership_id", null);
+
+  const { data, error } = await query.order("occurred_at", { ascending: false });
 
   if (error) throw new Error(error.message);
   return (data ?? []) as Activity[];
@@ -58,10 +59,14 @@ export async function createActivity(
     logged_by_id: profile.id,
   };
 
-  const { error } =
+  const row =
     ctx.kind === "deal"
-      ? await supabase.from("activities").insert({ ...base, deal_id: ctx.id })
-      : await supabase.from("activities").insert({ ...base, partnership_id: ctx.id });
+      ? { ...base, deal_id: ctx.id }
+      : ctx.kind === "partnership"
+        ? { ...base, partnership_id: ctx.id }
+        : base;
+
+  const { error } = await supabase.from("activities").insert(row);
 
   if (error) throw new Error(error.message);
   revalidatePath(workspacePath(ctx));

@@ -1,6 +1,7 @@
 export type DocumentType =
   | "NDA"
   | "MOU"
+  | "LOI"
   | "PROPOSAL"
   | "GOVERNMENT_BRIEF"
   | "PARTNERSHIP_AGREEMENT"

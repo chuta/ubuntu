@@ -4,12 +4,22 @@ import { getProfile } from "@/lib/supabase/server";
 import { getOrganization } from "@/lib/actions/organizations";
 import { getContacts } from "@/lib/actions/contacts";
 import { getInfluenceGraphData, getPositionHistoryByContacts, getOrganizationOptionsForInfluence } from "@/lib/actions/influence";
+import { getDocumentsByOrganization } from "@/lib/actions/documents";
+import { getActivities } from "@/lib/actions/activities";
+import { getTasks } from "@/lib/actions/tasks";
+import { getNotes } from "@/lib/actions/notes";
+import { getProfileOptions } from "@/lib/actions/deals";
+import type { WorkspaceContext } from "@/lib/workspace-context";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { AccountDetail } from "@/components/crm/account-detail";
 import { ContactPanel } from "@/components/crm/contact-panel";
 import { OrganizationInfluencePanel } from "@/components/influence/organization-influence-panel";
 import { ContactInfluenceSection } from "@/components/influence/contact-influence-section";
+import { OrganizationDocumentsPanel } from "@/components/organizations/organization-documents-panel";
+import { ActivityPanel } from "@/components/pipeline/activity-panel";
+import { TaskPanel } from "@/components/pipeline/task-panel";
+import { NotePanel } from "@/components/pipeline/note-panel";
 import { DeleteOrganizationButton } from "@/components/crm/delete-organization-button";
 import { ArrowLeft, Pencil } from "lucide-react";
 
@@ -20,22 +30,34 @@ export default async function AccountDetailPage({
 }) {
   const { id } = await params;
   const profile = await getProfile();
+  const basePath = `/accounts/${id}`;
+  const workspace: WorkspaceContext = {
+    kind: "organization",
+    id,
+    organizationId: id,
+    basePath,
+  };
+
   const [organization, contacts] = await Promise.all([
     getOrganization(id),
     getContacts(id),
   ]);
 
-  const [graphData, positionsByContact, orgOptions] = await Promise.all([
-    getInfluenceGraphData({ organization_id: id }),
-    getPositionHistoryByContacts(contacts.map((c) => c.id)),
-    getOrganizationOptionsForInfluence(),
-  ]);
+  const [graphData, positionsByContact, orgOptions, documents, activities, tasks, notes, profiles] =
+    await Promise.all([
+      getInfluenceGraphData({ organization_id: id }),
+      getPositionHistoryByContacts(contacts.map((c) => c.id)),
+      getOrganizationOptionsForInfluence(),
+      getDocumentsByOrganization(id),
+      getActivities(workspace),
+      getTasks(workspace),
+      getNotes(workspace),
+      getProfileOptions(),
+    ]);
 
   if (!organization || organization.organization_type !== "INSTITUTIONAL") {
     notFound();
   }
-
-  const basePath = `/accounts/${id}`;
 
   return (
     <>
@@ -60,6 +82,16 @@ export default async function AccountDetailPage({
         <div className="space-y-6">
           <AccountDetail organization={organization} />
           <ContactPanel organizationId={id} contacts={contacts} basePath={basePath} />
+          <OrganizationDocumentsPanel
+            organizationId={id}
+            documents={documents}
+            entityLabel="account"
+          />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ActivityPanel workspace={workspace} activities={activities} />
+            <TaskPanel workspace={workspace} tasks={tasks} profiles={profiles} />
+          </div>
+          <NotePanel workspace={workspace} notes={notes} />
           <ContactInfluenceSection
             contacts={contacts}
             positionsByContact={positionsByContact}

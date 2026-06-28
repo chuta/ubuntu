@@ -6,7 +6,7 @@ import type { WorkspaceContext } from "@/lib/workspace-context";
 import { workspacePath } from "@/lib/workspace-context";
 import { revalidatePath } from "next/cache";
 
-function entityType(ctx: WorkspaceContext): "deal" | "partnership" {
+function entityType(ctx: WorkspaceContext): "deal" | "partnership" | "organization" {
   return ctx.kind;
 }
 

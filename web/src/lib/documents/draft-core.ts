@@ -31,6 +31,7 @@ const BRAND = {
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   NDA: "NDA",
   MOU: "MOU",
+  LOI: "Letter of Intent",
   PROPOSAL: "Proposal",
   GOVERNMENT_BRIEF: "Government Brief",
   PARTNERSHIP_AGREEMENT: "Partnership Agreement",
@@ -82,6 +83,16 @@ function draftGuidelines(documentType: string): string {
 - ${slideTarget}
 - Do NOT use accent bars, decorative stripes, or lorem ipsum placeholders
 - Do NOT include letterhead or footer — branding is applied on export`;
+  }
+
+  if (documentType === "LOI") {
+    return `Document format (Word document — Letter of Intent):
+- Use # for the title and ## for sections
+- Open with a short preamble naming both parties and the purpose/intent of the engagement
+- Include these sections in order: Purpose & Intent; Proposed Scope of Collaboration; Key Commercial Terms; Exclusivity (if any); Confidentiality; Binding vs. Non-Binding Provisions; Indicative Timeline & Next Steps; Conditions to a Definitive Agreement; Signatures
+- Make clear which provisions are binding (typically confidentiality and exclusivity) and which are non-binding expressions of intent
+- Use markdown tables for proposed terms or timelines; use **bold** for defined terms and [BRACKET PLACEHOLDERS] for party-specific details
+- Do NOT use unicode bullet characters; do NOT include letterhead, logo block, or footer — those are added on export`;
   }
 
   return `Document format (Word document):
