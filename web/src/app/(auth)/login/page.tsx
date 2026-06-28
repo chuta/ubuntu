@@ -1,12 +1,17 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { initSession } from "@/lib/session/client";
 import { completeInviteLogin } from "@/lib/actions/team";
+import {
+  establishSessionFromUrl,
+  resolveAuthDestination,
+  urlHasAuthCredentials,
+} from "@/lib/auth/session-from-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -43,6 +48,21 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+
+  // Recover when a server-side callback dropped hash tokens onto /login
+  useEffect(() => {
+    if (!urlHasAuthCredentials()) return;
+    setRecovering(true);
+    const supabase = createClient();
+    establishSessionFromUrl(supabase).then((result) => {
+      if (result.ok) {
+        router.replace(resolveAuthDestination(null, result.type));
+      } else {
+        setRecovering(false);
+      }
+    });
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +89,6 @@ function LoginPageContent() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Brand panel — full height on desktop */}
       <div className="brand-gradient relative hidden w-1/2 flex-col justify-between p-12 text-white lg:flex">
         <Image src="/logo.svg" alt="Ubuntu Tribe" width={160} height={34} priority style={{ height: "auto" }} />
         <div className="max-w-md">
@@ -98,6 +117,10 @@ function LoginPageContent() {
             <p className="mt-1 text-sm text-gray-500">Access your commercial operating system</p>
           </div>
 
+          {recovering ? (
+            <p className="mt-8 text-sm text-gray-500">Opening your invitation…</p>
+          ) : (
+          <>
           {sessionNotice && (
             <p className={`mt-6 rounded-lg px-3 py-2 text-sm ${
               searchParams.get("setup") === "complete"
@@ -148,6 +171,8 @@ function LoginPageContent() {
               Register
             </Link>
           </p>
+          </>
+          )}
         </div>
       </div>
     </div>

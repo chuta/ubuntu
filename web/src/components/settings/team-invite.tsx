@@ -81,8 +81,7 @@ export function TeamInvite() {
         )}
         <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
           <p className="text-sm text-gray-600">
-            Invite a teammate by email. They&apos;ll receive a branded invite from{" "}
-            <span className="font-medium">hello@klarify.africa</span> to set a password and join.
+            Invite a teammate by email. They&apos;ll receive an email to set a password and join.
           </p>
           <Button type="button" size="sm" onClick={() => { setOpen(true); setSuccess(null); }}>
             <UserPlus className="mr-1.5 h-4 w-4" /> Invite member

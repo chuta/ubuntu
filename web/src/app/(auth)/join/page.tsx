@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { establishSessionFromUrl } from "@/lib/auth/session-from-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -23,11 +24,11 @@ export default function JoinPage() {
     const supabase = createClient();
 
     async function bootstrapSession() {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get("code");
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) setError(exchangeError.message);
+      const result = await establishSessionFromUrl(supabase);
+      if (!result.ok && window.location.search.includes("code=")) {
+        setError(result.error);
+      }
+      if (result.ok) {
         window.history.replaceState({}, "", "/join");
       }
 
