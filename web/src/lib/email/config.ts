@@ -15,7 +15,10 @@ export function resendApiKey(): string {
   return key;
 }
 
-/** Absolute URL for brand logo in transactional email (matches /join page). */
+/** Brand purple used in email headers (solid — gradients are stripped by many clients). */
+export const BRAND_PURPLE = "#5B0888";
+
+/** Absolute URL for brand logo in transactional email (white wordmark on transparent). */
 export function brandLogoUrl(appUrl: string): string {
   const base = appUrl.replace(/\/$/, "");
   return `${base}/logo-email.png`;

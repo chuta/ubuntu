@@ -1,5 +1,5 @@
 import { roleLabel } from "@/lib/auth/roles";
-import { brandLogoUrl } from "@/lib/email/config";
+import { brandLogoUrl, BRAND_PURPLE } from "@/lib/email/config";
 import type { UserRole } from "@/types/database";
 
 export type TeamInviteEmailProps = {
@@ -33,15 +33,21 @@ export function teamInviteEmailHtml(props: TeamInviteEmailProps): string {
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7;">
           <tr>
-            <td style="background:linear-gradient(135deg,#5B0888 0%,#C9932A 100%);padding:28px 32px;">
-              <img
-                src="${escapeHtml(logoUrl)}"
-                alt="Ubuntu Tribe"
-                width="160"
-                height="35"
-                style="display:block;margin:0 0 20px;border:0;outline:none;text-decoration:none;max-width:160px;height:auto;"
-              />
-              <h1 style="margin:0;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">You're invited to GrowthOS</h1>
+            <td bgcolor="${BRAND_PURPLE}" style="background-color:${BRAND_PURPLE};padding:0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="${BRAND_PURPLE}" style="background-color:${BRAND_PURPLE};">
+                <tr>
+                  <td style="padding:28px 32px;">
+                    <img
+                      src="${escapeHtml(logoUrl)}"
+                      alt="Ubuntu Tribe"
+                      width="160"
+                      height="35"
+                      style="display:block;margin:0 0 20px;border:0;outline:none;text-decoration:none;max-width:160px;height:auto;"
+                    />
+                    <h1 style="margin:0;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">You're invited to GrowthOS</h1>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
