@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { ASSIGNABLE_ROLES } from "@/lib/auth/roles";
-import { setUserActive, setUserManager, updateUserRole, type TeamMember } from "@/lib/actions/team";
+import {
+  resendInvite,
+  setUserActive,
+  setUserManager,
+  updateUserRole,
+  type TeamMember,
+} from "@/lib/actions/team";
 import type { UserRole } from "@/types/database";
 
 export function TeamTable({ members, currentUserId }: { members: TeamMember[]; currentUserId: string }) {
@@ -13,6 +19,26 @@ export function TeamTable({ members, currentUserId }: { members: TeamMember[]; c
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [resentId, setResentId] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+
+  function resend(member: TeamMember) {
+    setError(null);
+    setInviteLink(null);
+    setBusyId(member.id);
+    startTransition(async () => {
+      try {
+        const { link } = await resendInvite(member.id);
+        setResentId(member.id);
+        if (link) setInviteLink(link);
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not resend the invite");
+      } finally {
+        setBusyId(null);
+      }
+    });
+  }
 
   function run(id: string, fn: () => Promise<void>) {
     setError(null);
@@ -35,6 +61,26 @@ export function TeamTable({ members, currentUserId }: { members: TeamMember[]; c
     <div className="space-y-3">
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+      {inviteLink && (
+        <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-medium">Email could not be sent automatically — share this link with the invitee:</p>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={inviteLink}
+              onFocus={(e) => e.currentTarget.select()}
+              className="w-full rounded-md border border-blue-200 bg-white px-2 py-1.5 text-xs text-gray-700"
+            />
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(inviteLink)}
+              className="shrink-0 rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
       )}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
         <table className="w-full text-sm">
@@ -90,19 +136,33 @@ export function TeamTable({ members, currentUserId }: { members: TeamMember[]; c
                     </Select>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Badge variant={m.is_active ? "green" : "default"}>
-                        {m.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                      <button
-                        type="button"
-                        disabled={rowBusy || isSelf}
-                        onClick={() => run(m.id, () => setUserActive(m.id, !m.is_active))}
-                        className="text-xs font-medium text-brand-purple hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline"
-                      >
-                        {m.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                    </div>
+                    {m.pending_invite ? (
+                      <div className="flex items-center gap-3">
+                        <Badge variant="gold">Invited</Badge>
+                        <button
+                          type="button"
+                          disabled={rowBusy}
+                          onClick={() => resend(m)}
+                          className="text-xs font-medium text-brand-purple hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline"
+                        >
+                          {rowBusy ? "Sending…" : resentId === m.id ? "Resent" : "Resend invite"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <Badge variant={m.is_active ? "green" : "default"}>
+                          {m.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <button
+                          type="button"
+                          disabled={rowBusy || isSelf}
+                          onClick={() => run(m.id, () => setUserActive(m.id, !m.is_active))}
+                          className="text-xs font-medium text-brand-purple hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline"
+                        >
+                          {m.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );

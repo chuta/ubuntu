@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/header";
 import { getProfile } from "@/lib/supabase/server";
 import { getTeamMembers } from "@/lib/actions/team";
 import { TeamTable } from "@/components/settings/team-table";
+import { TeamInvite } from "@/components/settings/team-invite";
 
 export default async function TeamSettingsPage() {
   const profile = await getProfile();
@@ -40,6 +41,8 @@ export default async function TeamSettingsPage() {
               approve them below.
             </div>
           )}
+
+          <TeamInvite />
 
           <TeamTable members={members} currentUserId={profile.id} />
         </div>

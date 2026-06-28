@@ -33,7 +33,12 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register");
 
-  if (!user && !isAuthPage && request.nextUrl.pathname !== "/") {
+  // /auth/* (callback, set-password) must stay reachable without a prior
+  // session so invite + email-confirmation links can complete.
+  const isPublicPath =
+    isAuthPage || request.nextUrl.pathname.startsWith("/auth");
+
+  if (!user && !isPublicPath && request.nextUrl.pathname !== "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
