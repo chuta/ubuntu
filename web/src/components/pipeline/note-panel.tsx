@@ -6,10 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { createNote, deleteNote } from "@/lib/actions/notes";
+import type { WorkspaceContext } from "@/lib/workspace-context";
 import type { Note } from "@/types/pipeline";
 import { Pin, Plus, Trash2 } from "lucide-react";
 
-export function NotePanel({ dealId, notes }: { dealId: string; notes: Note[] }) {
+export function NotePanel({
+  workspace,
+  notes,
+}: {
+  workspace: WorkspaceContext;
+  notes: Note[];
+}) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [pinned, setPinned] = useState(false);
@@ -20,7 +27,7 @@ export function NotePanel({ dealId, notes }: { dealId: string; notes: Note[] }) 
     if (!body.trim()) return;
     setLoading(true);
     try {
-      await createNote(dealId, body.trim(), pinned);
+      await createNote(workspace, body.trim(), pinned);
       setBody("");
       setPinned(false);
       router.refresh();
@@ -31,7 +38,7 @@ export function NotePanel({ dealId, notes }: { dealId: string; notes: Note[] }) 
 
   async function handleDelete(noteId: string) {
     if (!confirm("Delete this note?")) return;
-    await deleteNote(noteId, dealId);
+    await deleteNote(noteId, workspace);
     router.refresh();
   }
 

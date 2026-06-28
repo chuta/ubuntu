@@ -9,16 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/crm/form-field";
 import { createActivity } from "@/lib/actions/activities";
 import { ACTIVITY_TYPES } from "@/lib/constants/deals";
+import type { WorkspaceContext } from "@/lib/workspace-context";
 import type { Activity } from "@/types/pipeline";
 import { Plus } from "lucide-react";
 
 export function ActivityPanel({
-  dealId,
-  organizationId,
+  workspace,
   activities,
 }: {
-  dealId: string;
-  organizationId: string;
+  workspace: WorkspaceContext;
   activities: Activity[];
 }) {
   const router = useRouter();
@@ -30,7 +29,7 @@ export function ActivityPanel({
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     try {
-      await createActivity(dealId, organizationId, {
+      await createActivity(workspace, {
         activity_type: fd.get("activity_type") as Activity["activity_type"],
         subject: fd.get("subject") as string,
         description: (fd.get("description") as string) || undefined,

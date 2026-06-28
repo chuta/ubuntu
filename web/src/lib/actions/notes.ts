@@ -2,15 +2,21 @@
 
 import { createClient, getProfile } from "@/lib/supabase/server";
 import type { Note } from "@/types/pipeline";
+import type { WorkspaceContext } from "@/lib/workspace-context";
+import { workspacePath } from "@/lib/workspace-context";
 import { revalidatePath } from "next/cache";
 
-export async function getNotes(dealId: string): Promise<Note[]> {
+function entityType(ctx: WorkspaceContext): "deal" | "partnership" {
+  return ctx.kind;
+}
+
+export async function getNotes(ctx: WorkspaceContext): Promise<Note[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("notes")
     .select("*, author:profiles(full_name)")
-    .eq("entity_type", "deal")
-    .eq("entity_id", dealId)
+    .eq("entity_type", entityType(ctx))
+    .eq("entity_id", ctx.id)
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -18,7 +24,7 @@ export async function getNotes(dealId: string): Promise<Note[]> {
   return (data ?? []) as Note[];
 }
 
-export async function createNote(dealId: string, body: string, isPinned = false) {
+export async function createNote(ctx: WorkspaceContext, body: string, isPinned = false) {
   const supabase = await createClient();
   const profile = await getProfile();
   if (!profile) throw new Error("Not authenticated");
@@ -26,18 +32,18 @@ export async function createNote(dealId: string, body: string, isPinned = false)
   const { error } = await supabase.from("notes").insert({
     body,
     author_id: profile.id,
-    entity_type: "deal",
-    entity_id: dealId,
+    entity_type: entityType(ctx),
+    entity_id: ctx.id,
     is_pinned: isPinned,
   });
 
   if (error) throw new Error(error.message);
-  revalidatePath(`/pipeline/${dealId}`);
+  revalidatePath(workspacePath(ctx));
 }
 
-export async function deleteNote(noteId: string, dealId: string) {
+export async function deleteNote(noteId: string, ctx: WorkspaceContext) {
   const supabase = await createClient();
   const { error } = await supabase.from("notes").delete().eq("id", noteId);
   if (error) throw new Error(error.message);
-  revalidatePath(`/pipeline/${dealId}`);
+  revalidatePath(workspacePath(ctx));
 }

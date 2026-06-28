@@ -28,6 +28,7 @@ import { DealTokenizationPanel } from "@/components/tokenization/deal-tokenizati
 import { DeleteDealButton } from "@/components/pipeline/delete-deal-button";
 import { ArrowLeft, Pencil } from "lucide-react";
 import type { DealStageHistory } from "@/types/pipeline";
+import type { WorkspaceContext } from "@/lib/workspace-context";
 
 export default async function DealDetailPage({
   params,
@@ -40,10 +41,16 @@ export default async function DealDetailPage({
   const dealData = await getDeal(id);
   if (!dealData) notFound();
 
+  const workspace: WorkspaceContext = {
+    kind: "deal",
+    id,
+    organizationId: dealData.organization_id,
+  };
+
   const [activities, tasks, notes, history, profiles, partnership, partnershipOptions, tokenizationProject, tokenizationOptions, contacts, influenceGraph, riskSuggestions] = await Promise.all([
-    getActivities(id),
-    getTasks(id),
-    getNotes(id),
+    getActivities(workspace),
+    getTasks(workspace),
+    getNotes(workspace),
     getStageHistory(id),
     getProfileOptions(),
     getPartnershipByDealId(id),
@@ -97,10 +104,10 @@ export default async function DealDetailPage({
             contacts={contacts}
           />
           <div className="grid gap-6 lg:grid-cols-2">
-            <ActivityPanel dealId={id} organizationId={deal.organization_id} activities={activities} />
-            <TaskPanel dealId={id} organizationId={deal.organization_id} tasks={tasks} profiles={profiles} />
+            <ActivityPanel workspace={workspace} activities={activities} />
+            <TaskPanel workspace={workspace} tasks={tasks} profiles={profiles} />
           </div>
-          <NotePanel dealId={id} notes={notes} />
+          <NotePanel workspace={workspace} notes={notes} />
           <StageHistoryPanel history={history as DealStageHistory[]} />
         </div>
       </main>

@@ -32,6 +32,7 @@ export async function getDocuments(filters?: {
   document_type?: string;
   status?: string;
   search?: string;
+  partnership_id?: string;
 }): Promise<Document[]> {
   const supabase = await createClient();
   let query = supabase
@@ -42,10 +43,25 @@ export async function getDocuments(filters?: {
   if (filters?.document_type) query = query.eq("document_type", filters.document_type);
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.search) query = query.ilike("title", `%${filters.search}%`);
+  if (filters?.partnership_id) query = query.eq("partnership_id", filters.partnership_id);
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as Document[];
+}
+
+export async function getDocumentsByPartnership(partnershipId: string): Promise<Document[]> {
+  return getDocuments({ partnership_id: partnershipId });
+}
+
+function revalidateDocumentLinks(data: {
+  partnership_id?: string;
+  deal_id?: string;
+}) {
+  revalidatePath("/documents");
+  revalidatePath("/dashboard");
+  if (data.partnership_id) revalidatePath(`/partnerships/${data.partnership_id}`);
+  if (data.deal_id) revalidatePath(`/pipeline/${data.deal_id}`);
 }
 
 export async function getDocument(id: string): Promise<Document | null> {
@@ -95,8 +111,10 @@ export async function createDocument(data: DocumentFormData) {
     content: data.content,
   });
 
-  revalidatePath("/documents");
-  revalidatePath("/dashboard");
+  revalidateDocumentLinks({
+    partnership_id: data.partnership_id,
+    deal_id: data.deal_id,
+  });
   return documentId;
 }
 
@@ -107,8 +125,10 @@ export async function createDocumentWithAiDraft(params: AiDraftParams) {
 
   const documentId = await createAiDocument(supabase, profile.id, params);
 
-  revalidatePath("/documents");
-  revalidatePath("/dashboard");
+  revalidateDocumentLinks({
+    partnership_id: params.partnership_id,
+    deal_id: params.deal_id,
+  });
   return documentId;
 }
 

@@ -125,6 +125,7 @@ export type Activity = {
   duration_minutes: number | null;
   outcome: string | null;
   deal_id: string | null;
+  partnership_id: string | null;
   logged_by_id: string;
   logged_by?: { full_name: string } | null;
 };
@@ -138,6 +139,7 @@ export type Task = {
   status: TaskStatus;
   priority: DealPriority | null;
   deal_id: string | null;
+  partnership_id: string | null;
   assignee?: { full_name: string } | null;
 };
 

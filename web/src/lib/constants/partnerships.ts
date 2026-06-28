@@ -1,4 +1,4 @@
-import type { PartnershipStatus, PartnershipType } from "@/types/partnerships";
+import type { MilestoneStatus, PartnershipStatus, PartnershipType } from "@/types/partnerships";
 
 export const PARTNERSHIP_TYPES: { value: PartnershipType; label: string }[] = [
   { value: "DISTRIBUTION", label: "Distribution" },
@@ -19,6 +19,29 @@ export const PARTNERSHIP_STATUSES: { value: PartnershipStatus; label: string }[]
   { value: "PAUSED", label: "Paused" },
   { value: "TERMINATED", label: "Terminated" },
 ];
+
+export const MILESTONE_STATUSES: { value: MilestoneStatus; label: string }[] = [
+  { value: "PENDING", label: "Pending" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "BLOCKED", label: "Blocked" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
+
+export function milestoneStatusVariant(status: MilestoneStatus) {
+  switch (status) {
+    case "COMPLETED":
+      return "green" as const;
+    case "IN_PROGRESS":
+      return "purple" as const;
+    case "BLOCKED":
+      return "red" as const;
+    case "CANCELLED":
+      return "default" as const;
+    default:
+      return "gold" as const;
+  }
+}
 
 export function partnershipStatusVariant(status: PartnershipStatus) {
   switch (status) {

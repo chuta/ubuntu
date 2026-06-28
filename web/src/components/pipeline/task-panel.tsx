@@ -6,21 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { FormField } from "@/components/crm/form-field";
 import { createTask, updateTaskStatus } from "@/lib/actions/tasks";
 import { DEAL_PRIORITIES, TASK_STATUSES } from "@/lib/constants/deals";
+import type { WorkspaceContext } from "@/lib/workspace-context";
 import type { ProfileOption, Task, TaskStatus } from "@/types/pipeline";
 import { Plus } from "lucide-react";
 
 export function TaskPanel({
-  dealId,
-  organizationId,
+  workspace,
   tasks,
   profiles,
 }: {
-  dealId: string;
-  organizationId: string;
+  workspace: WorkspaceContext;
   tasks: Task[];
   profiles: ProfileOption[];
 }) {
@@ -33,7 +31,7 @@ export function TaskPanel({
     setLoading(true);
     const fd = new FormData(e.currentTarget);
     try {
-      await createTask(dealId, organizationId, {
+      await createTask(workspace, {
         title: fd.get("title") as string,
         description: (fd.get("description") as string) || undefined,
         assignee_id: fd.get("assignee_id") as string,
@@ -48,7 +46,7 @@ export function TaskPanel({
   }
 
   async function handleStatusChange(taskId: string, status: TaskStatus) {
-    await updateTaskStatus(taskId, status, dealId);
+    await updateTaskStatus(taskId, status, workspace);
     router.refresh();
   }
 

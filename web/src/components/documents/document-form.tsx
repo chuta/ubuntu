@@ -23,14 +23,22 @@ type LinkOptions = {
   partnerships: { id: string; name: string }[];
 };
 
+type DocumentLinkDefaults = {
+  organization_id?: string;
+  deal_id?: string;
+  partnership_id?: string;
+};
+
 export function DocumentForm({
   links,
   document,
   aiMode = false,
+  defaultValues,
 }: {
   links: LinkOptions;
   document?: Document;
   aiMode?: boolean;
+  defaultValues?: DocumentLinkDefaults;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -143,19 +151,19 @@ export function DocumentForm({
   const linkFields = (
     <>
       <FormField label="Organization" htmlFor="organization_id">
-        <Select id="organization_id" name="organization_id" defaultValue={document?.organization_id ?? ""}>
+        <Select id="organization_id" name="organization_id" defaultValue={document?.organization_id ?? defaultValues?.organization_id ?? ""}>
           <option value="">None</option>
           {links.organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </Select>
       </FormField>
       <FormField label="Deal" htmlFor="deal_id">
-        <Select id="deal_id" name="deal_id" defaultValue={document?.deal_id ?? ""}>
+        <Select id="deal_id" name="deal_id" defaultValue={document?.deal_id ?? defaultValues?.deal_id ?? ""}>
           <option value="">None</option>
           {links.deals.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </Select>
       </FormField>
       <FormField label="Partnership" htmlFor="partnership_id">
-        <Select id="partnership_id" name="partnership_id" defaultValue={document?.partnership_id ?? ""}>
+        <Select id="partnership_id" name="partnership_id" defaultValue={document?.partnership_id ?? defaultValues?.partnership_id ?? ""}>
           <option value="">None</option>
           {links.partnerships.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>

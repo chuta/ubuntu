@@ -6,13 +6,24 @@ import {
   getPartnershipMembers,
   getDealOptions,
 } from "@/lib/actions/partnerships";
-import { getOrganizationOptions } from "@/lib/actions/deals";
+import { getOrganizationOptions, getProfileOptions } from "@/lib/actions/deals";
+import { getDocumentsByPartnership } from "@/lib/actions/documents";
+import { getActivities } from "@/lib/actions/activities";
+import { getTasks } from "@/lib/actions/tasks";
+import { getNotes } from "@/lib/actions/notes";
+import { getPartnershipMilestones } from "@/lib/actions/partnership-milestones";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { PartnershipDetail } from "@/components/partnerships/partnership-detail";
 import { PartnershipDealLinkPanel } from "@/components/partnerships/partnership-deal-link-panel";
 import { PartnershipMembersPanel } from "@/components/partnerships/partnership-members-panel";
+import { PartnershipDocumentsPanel } from "@/components/partnerships/partnership-documents-panel";
+import { PartnershipMilestonesPanel } from "@/components/partnerships/partnership-milestones-panel";
+import { ActivityPanel } from "@/components/pipeline/activity-panel";
+import { TaskPanel } from "@/components/pipeline/task-panel";
+import { NotePanel } from "@/components/pipeline/note-panel";
 import { DeletePartnershipButton } from "@/components/partnerships/delete-partnership-button";
+import type { WorkspaceContext } from "@/lib/workspace-context";
 import { ArrowLeft, Pencil } from "lucide-react";
 
 export default async function PartnershipDetailPage({
@@ -23,14 +34,36 @@ export default async function PartnershipDetailPage({
   const { id } = await params;
   const profile = await getProfile();
 
-  const [partnership, members, deals, organizations] = await Promise.all([
-    getPartnership(id),
+  const partnership = await getPartnership(id);
+  if (!partnership) notFound();
+
+  const workspace: WorkspaceContext = {
+    kind: "partnership",
+    id,
+    organizationId: partnership.primary_partner_id,
+  };
+
+  const [
+    members,
+    deals,
+    organizations,
+    documents,
+    activities,
+    tasks,
+    notes,
+    milestones,
+    profiles,
+  ] = await Promise.all([
     getPartnershipMembers(id),
     getDealOptions(),
     getOrganizationOptions(),
+    getDocumentsByPartnership(id),
+    getActivities(workspace),
+    getTasks(workspace),
+    getNotes(workspace),
+    getPartnershipMilestones(id),
+    getProfileOptions(),
   ]);
-
-  if (!partnership) notFound();
 
   return (
     <>
@@ -54,6 +87,21 @@ export default async function PartnershipDetailPage({
 
         <div className="space-y-6">
           <PartnershipDetail partnership={partnership} />
+          <PartnershipDocumentsPanel
+            partnershipId={id}
+            organizationId={partnership.primary_partner_id}
+            documents={documents}
+          />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ActivityPanel workspace={workspace} activities={activities} />
+            <TaskPanel workspace={workspace} tasks={tasks} profiles={profiles} />
+          </div>
+          <PartnershipMilestonesPanel
+            partnershipId={id}
+            milestones={milestones}
+            profiles={profiles}
+          />
+          <NotePanel workspace={workspace} notes={notes} />
           <div className="grid gap-6 lg:grid-cols-2">
             <PartnershipDealLinkPanel partnership={partnership} deals={deals} />
             <PartnershipMembersPanel
