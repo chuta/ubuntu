@@ -14,3 +14,9 @@ export function resendApiKey(): string {
   }
   return key;
 }
+
+/** Absolute URL for brand logo in transactional email (matches /join page). */
+export function brandLogoUrl(appUrl: string): string {
+  const base = appUrl.replace(/\/$/, "");
+  return `${base}/logo-email.png`;
+}

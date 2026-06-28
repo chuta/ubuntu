@@ -13,6 +13,7 @@ const root = resolve(__dirname, "..");
 const svgPath = resolve(root, "public", "logo.svg");
 const outHeader = resolve(root, "public", "logo-header.png");
 const outMark = resolve(root, "public", "logo-mark.png");
+const outEmail = resolve(root, "public", "logo-email.png");
 
 if (!existsSync(svgPath)) {
   console.error("Missing public/logo.svg");
@@ -45,5 +46,12 @@ await sharp(svg)
   .png()
   .toFile(outMark);
 
+/** Email header: full wordmark on transparent (for purple/gold gradient backgrounds). */
+await sharp(svg)
+  .resize(280, 60, { fit: "inside" })
+  .png()
+  .toFile(outEmail);
+
 console.log("Wrote", outHeader);
 console.log("Wrote", outMark);
+console.log("Wrote", outEmail);

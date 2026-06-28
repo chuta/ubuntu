@@ -1,4 +1,5 @@
 import { roleLabel } from "@/lib/auth/roles";
+import { brandLogoUrl } from "@/lib/email/config";
 import type { UserRole } from "@/types/database";
 
 export type TeamInviteEmailProps = {
@@ -17,6 +18,7 @@ export function teamInviteEmailSubject(props: TeamInviteEmailProps): string {
 export function teamInviteEmailHtml(props: TeamInviteEmailProps): string {
   const role = roleLabel(props.role);
   const year = new Date().getFullYear();
+  const logoUrl = brandLogoUrl(props.appUrl);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -31,9 +33,15 @@ export function teamInviteEmailHtml(props: TeamInviteEmailProps): string {
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7;">
           <tr>
-            <td style="background:linear-gradient(135deg,#5B0888 0%,#7c3aed 100%);padding:28px 32px;">
-              <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.75);">Ubuntu Tribe</p>
-              <h1 style="margin:0;font-size:24px;line-height:1.3;color:#ffffff;">You're invited to GrowthOS</h1>
+            <td style="background:linear-gradient(135deg,#5B0888 0%,#C9932A 100%);padding:28px 32px;">
+              <img
+                src="${escapeHtml(logoUrl)}"
+                alt="Ubuntu Tribe"
+                width="160"
+                height="35"
+                style="display:block;margin:0 0 20px;border:0;outline:none;text-decoration:none;max-width:160px;height:auto;"
+              />
+              <h1 style="margin:0;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">You're invited to GrowthOS</h1>
             </td>
           </tr>
           <tr>
