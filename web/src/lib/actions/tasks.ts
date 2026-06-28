@@ -16,7 +16,9 @@ export type TaskFormData = {
 
 export async function getTasks(ctx: WorkspaceContext): Promise<Task[]> {
   const supabase = await createClient();
-  let query = supabase.from("tasks").select("*, assignee:profiles(full_name)");
+  let query = supabase
+    .from("tasks")
+    .select("*, assignee:profiles!tasks_assignee_id_fkey(full_name)");
 
   if (ctx.kind === "deal") query = query.eq("deal_id", ctx.id);
   else if (ctx.kind === "partnership") query = query.eq("partnership_id", ctx.id);

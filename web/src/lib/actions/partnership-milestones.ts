@@ -17,7 +17,7 @@ export async function getPartnershipMilestones(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("partnership_milestones")
-    .select("*, assignee:profiles(full_name)")
+    .select("*, assignee:profiles!partnership_milestones_assignee_id_fkey(full_name)")
     .eq("partnership_id", partnershipId)
     .order("sort_order", { ascending: true })
     .order("due_date", { ascending: true, nullsFirst: false });
