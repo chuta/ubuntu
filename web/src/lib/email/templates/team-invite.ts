@@ -25,7 +25,7 @@ export function teamInviteEmailHtml(props: TeamInviteEmailProps): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>You're invited to GrowthOS</title>
+  <title>You're invited to Ubuntu GrowthOS</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18181b;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;padding:32px 16px;">
@@ -58,7 +58,7 @@ export function teamInviteEmailHtml(props: TeamInviteEmailProps): string {
               <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#3f3f46;">
                 <strong>${escapeHtml(props.inviterName)}</strong> has invited you to join
                 <strong>GrowthOS</strong> — Ubuntu Tribe's commercial intelligence platform — as
-                <strong>${escapeHtml(role)}</strong>.
+                <strong>${escapeHtml(role)}</strong> team member.
               </p>
               <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#52525b;">
                 Use the button below to accept your invitation, set a password for

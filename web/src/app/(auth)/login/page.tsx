@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { initSession } from "@/lib/session/client";
-import { completeInviteLogin } from "@/lib/actions/team";
 import {
   establishSessionFromUrl,
   resolveAuthDestination,
@@ -81,10 +80,16 @@ function LoginPageContent() {
       return;
     }
 
-    await completeInviteLogin();
+    // Activate invited users on first sign-in (no-op for everyone else).
+    try {
+      await fetch("/api/auth/complete-login", { method: "POST" });
+    } catch {
+      // Non-fatal: an admin can still activate manually if this fails.
+    }
+
     initSession();
-    router.push("/dashboard");
-    router.refresh();
+    // Hard navigation so the new session cookies are read by the server.
+    window.location.assign("/dashboard");
   }
 
   return (

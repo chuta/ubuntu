@@ -86,35 +86,6 @@ export async function inviteTeamMember(input: {
   return { emailSent: true };
 }
 
-/**
- * Activate an invited user after their first successful password sign-in.
- * Self-registered users (no invited_at) are not affected — admins still approve those.
- */
-export async function completeInviteLogin(): Promise<{ activated: boolean }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { activated: false };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("invited_at, is_active")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.invited_at || profile.is_active) return { activated: false };
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ is_active: true, last_login_at: new Date().toISOString() })
-    .eq("id", user.id);
-
-  if (error) throw new Error(error.message);
-  revalidatePath("/settings/team");
-  return { activated: true };
-}
-
 /** Re-send invite email via Resend (fresh Supabase link). */
 export async function resendInvite(userId: string): Promise<InviteDeliveryResult> {
   const adminProfile = await requireAdmin();
