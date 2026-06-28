@@ -22,14 +22,28 @@ export function roleLabel(role: string | null | undefined): string {
   return ROLE_LABELS[role as UserRole] ?? role;
 }
 
-// Roles that currently have working access policies and can be assigned in the
-// team management UI. Specialist roles (LEGAL/MARKETING/OPERATIONS) remain in
-// the enum but are reserved until per-role policies are built.
+// Roles assignable in the team management UI, with a short description of the
+// access each grants.
 export const ASSIGNABLE_ROLES: { value: UserRole; label: string; description: string }[] = [
   {
     value: "COMMERCIAL",
     label: "Commercial",
-    description: "Creates and owns deals, partnerships, documents and tasks.",
+    description: "Owns the pipeline — creates deals, partnerships, organizations and documents.",
+  },
+  {
+    value: "LEGAL",
+    label: "Legal",
+    description: "Sees all records; drafts and edits documents, tasks, notes and activities.",
+  },
+  {
+    value: "OPERATIONS",
+    label: "Operations",
+    description: "Sees all records; runs tasks, milestones, partnership execution and events.",
+  },
+  {
+    value: "MARKETING",
+    label: "Marketing",
+    description: "Sees all records; owns events and contributes documents, tasks and notes.",
   },
   {
     value: "EXECUTIVE",

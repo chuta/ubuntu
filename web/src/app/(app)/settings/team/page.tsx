@@ -13,6 +13,7 @@ export default async function TeamSettingsPage() {
 
   const members = await getTeamMembers();
   const activeCount = members.filter((m) => m.is_active).length;
+  const pendingCount = members.length - activeCount;
 
   return (
     <>
@@ -31,6 +32,14 @@ export default async function TeamSettingsPage() {
               by their direct reports.
             </p>
           </div>
+
+          {pendingCount > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span className="font-medium">{pendingCount}</span> account
+              {pendingCount === 1 ? "" : "s"} awaiting activation. New sign-ups stay inactive until you
+              approve them below.
+            </div>
+          )}
 
           <TeamTable members={members} currentUserId={profile.id} />
         </div>

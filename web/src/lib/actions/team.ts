@@ -15,7 +15,14 @@ export type TeamMember = {
   reports_to_id: string | null;
 };
 
-const ASSIGNABLE: UserRole[] = ["COMMERCIAL", "EXECUTIVE", "ADMIN"];
+const ASSIGNABLE: UserRole[] = [
+  "COMMERCIAL",
+  "LEGAL",
+  "OPERATIONS",
+  "MARKETING",
+  "EXECUTIVE",
+  "ADMIN",
+];
 
 async function requireAdmin() {
   const profile = await getProfile();
@@ -30,6 +37,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, email, full_name, role, title, department, is_active, reports_to_id")
+    .order("is_active", { ascending: true })
     .order("full_name");
 
   if (error) throw new Error(error.message);
