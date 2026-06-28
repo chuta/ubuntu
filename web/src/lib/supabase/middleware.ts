@@ -29,6 +29,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // API routes handle their own auth — never redirect them (a redirected POST
+  // becomes a 405 on the target page). Still return the refreshed-cookie response.
+  if (request.nextUrl.pathname.startsWith("/api")) {
+    return supabaseResponse;
+  }
+
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register");
