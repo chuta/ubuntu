@@ -143,7 +143,7 @@ export function TeamInvite() {
           {pending ? "Sending invite…" : "Send invite"}
         </Button>
         <p className="text-xs text-gray-400">
-          The invite pre-approves the account — they can sign in once they set a password.
+          Invited users stay inactive until they set a password and sign in for the first time.
         </p>
       </div>
     </form>

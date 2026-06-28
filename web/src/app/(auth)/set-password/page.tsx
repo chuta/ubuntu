@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { initSession } from "@/lib/session/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -21,11 +20,26 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+
+    async function bootstrapSession() {
+      // PKCE: ?code= on this page if callback was skipped
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          setError(exchangeError.message);
+        }
+        window.history.replaceState({}, "", "/set-password");
+      }
+
+      const { data } = await supabase.auth.getUser();
       setHasSession(!!data.user);
       setEmail(data.user?.email ?? null);
       setChecking(false);
-    });
+    }
+
+    bootstrapSession();
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,9 +63,9 @@ export default function SetPasswordPage() {
       return;
     }
 
-    initSession();
-    router.push("/dashboard");
-    router.refresh();
+    // Password is saved — sign out so the invitee completes onboarding via sign-in.
+    await supabase.auth.signOut();
+    router.push("/login?setup=complete");
   }
 
   return (
@@ -93,7 +107,11 @@ export default function SetPasswordPage() {
               <div className="text-center lg:text-left">
                 <h2 className="text-2xl font-semibold text-gray-900">Set your password</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  {email ? <>Finishing setup for <strong>{email}</strong></> : "Choose a password to access your account"}
+                  {email ? (
+                    <>Step 1 of 2 — create a password for <strong>{email}</strong>. You&apos;ll sign in next.</>
+                  ) : (
+                    "Step 1 of 2 — choose a password, then sign in to access your account."
+                  )}
                 </p>
               </div>
 
@@ -130,7 +148,7 @@ export default function SetPasswordPage() {
                   <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
                 )}
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Saving…" : "Set password & continue"}
+                  {loading ? "Saving…" : "Save password & continue to sign in"}
                 </Button>
               </form>
             </>

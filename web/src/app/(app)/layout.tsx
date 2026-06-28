@@ -11,6 +11,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   if (!profile.is_active) {
+    if (profile.invited_at) {
+      redirect("/set-password");
+    }
     return <AccountInactive email={profile.email} />;
   }
 

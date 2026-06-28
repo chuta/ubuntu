@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { initSession } from "@/lib/session/client";
+import { completeInviteLogin } from "@/lib/actions/team";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -29,7 +30,9 @@ function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionNotice =
-    searchParams.get("reason") === "idle_timeout"
+    searchParams.get("setup") === "complete"
+      ? "Password saved. Sign in with your email and new password to access GrowthOS."
+      : searchParams.get("reason") === "idle_timeout"
       ? "You were signed out after being inactive."
       : searchParams.get("reason") === "session_expired"
         ? "Your session reached its time limit. Please sign in again."
@@ -58,6 +61,7 @@ function LoginPageContent() {
       return;
     }
 
+    await completeInviteLogin();
     initSession();
     router.push("/dashboard");
     router.refresh();
@@ -95,7 +99,11 @@ function LoginPageContent() {
           </div>
 
           {sessionNotice && (
-            <p className="mt-6 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{sessionNotice}</p>
+            <p className={`mt-6 rounded-lg px-3 py-2 text-sm ${
+              searchParams.get("setup") === "complete"
+                ? "bg-green-50 text-green-800"
+                : "bg-amber-50 text-amber-800"
+            }`}>{sessionNotice}</p>
           )}
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">

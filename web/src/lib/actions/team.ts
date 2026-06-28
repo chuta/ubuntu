@@ -15,7 +15,8 @@ export type TeamMember = {
   department: string | null;
   is_active: boolean;
   reports_to_id: string | null;
-  /** Invited but has not yet accepted (set a password / signed in). */
+  invited_at: string | null;
+  /** Admin invited; password not yet set and first sign-in not completed. */
   pending_invite: boolean;
 };
 
@@ -28,6 +29,11 @@ async function appOrigin(): Promise<string> {
   const proto = h.get("x-forwarded-proto") ?? "https";
   if (host) return `${proto}://${host}`;
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
+
+/** Redirect target after Supabase verifies an invite link. */
+function inviteCallbackUrl(origin: string) {
+  return `${origin}/auth/callback?next=/set-password&type=invite`;
 }
 
 const ASSIGNABLE: UserRole[] = [
@@ -51,38 +57,22 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role, title, department, is_active, reports_to_id")
+    .select("id, email, full_name, role, title, department, is_active, reports_to_id, invited_at")
     .order("is_active", { ascending: true })
     .order("full_name");
 
   if (error) throw new Error(error.message);
 
-  const members = (data ?? []).map((m) => ({
+  return (data ?? []).map((m) => ({
     ...m,
-    pending_invite: false,
+    pending_invite: !!m.invited_at && !m.is_active,
   })) as TeamMember[];
-
-  // Enrich with auth state so the UI can distinguish invited-but-not-yet-joined
-  // users from active/inactive ones. Non-fatal if the admin API is unavailable.
-  try {
-    const admin = createAdminClient();
-    const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
-    const byId = new Map(authData.users.map((u) => [u.id, u]));
-    for (const m of members) {
-      const u = byId.get(m.id);
-      m.pending_invite = !!u && !u.last_sign_in_at && !u.email_confirmed_at;
-    }
-  } catch {
-    // Leave pending_invite=false if we can't read auth state.
-  }
-
-  return members;
 }
 
 /**
  * Invite a teammate by email. Creates the auth user (Supabase sends the invite
- * email), assigns the chosen role, and pre-approves the account so they can sign
- * in as soon as they set a password.
+ * email), assigns the chosen role, and leaves the account inactive until they
+ * set a password and sign in for the first time.
  */
 export async function inviteTeamMember(input: {
   email: string;
@@ -98,7 +88,7 @@ export async function inviteTeamMember(input: {
   if (!ASSIGNABLE.includes(input.role)) throw new Error("Invalid role");
 
   const admin = createAdminClient();
-  const redirectTo = `${await appOrigin()}/auth/callback?next=/auth/set-password`;
+  const redirectTo = inviteCallbackUrl(await appOrigin());
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName },
@@ -112,18 +102,50 @@ export async function inviteTeamMember(input: {
     throw new Error(error.message);
   }
 
-  // The handle_new_user trigger creates the profile (COMMERCIAL, inactive).
-  // Apply the chosen role/name and pre-approve the invited user.
   const userId = data.user?.id;
   if (userId) {
     const { error: updateError } = await admin
       .from("profiles")
-      .update({ role: input.role, full_name: fullName, is_active: true })
+      .update({
+        role: input.role,
+        full_name: fullName,
+        is_active: false,
+        invited_at: new Date().toISOString(),
+      })
       .eq("id", userId);
     if (updateError) throw new Error(updateError.message);
   }
 
   revalidatePath("/settings/team");
+}
+
+/**
+ * Activate an invited user after their first successful password sign-in.
+ * Self-registered users (no invited_at) are not affected — admins still approve those.
+ */
+export async function completeInviteLogin(): Promise<{ activated: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { activated: false };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("invited_at, is_active")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.invited_at || profile.is_active) return { activated: false };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: true, last_login_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings/team");
+  return { activated: true };
 }
 
 /**
@@ -142,23 +164,32 @@ export async function resendInvite(userId: string): Promise<{ link: string | nul
     .single();
   if (profileError || !profile?.email) throw new Error("User not found");
 
-  const redirectTo = `${await appOrigin()}/auth/callback?next=/auth/set-password`;
+  const redirectTo = inviteCallbackUrl(await appOrigin());
 
   const { error } = await admin.auth.admin.inviteUserByEmail(profile.email, {
     redirectTo,
   });
   if (!error) {
+    await admin
+      .from("profiles")
+      .update({ is_active: false, invited_at: new Date().toISOString() })
+      .eq("id", userId);
     revalidatePath("/settings/team");
     return { link: null };
   }
 
-  // Already registered → generate a one-time link the admin can share directly.
+  // User already exists — generate a fresh invite link the admin can share.
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "magiclink",
+    type: "invite",
     email: profile.email,
     options: { redirectTo },
   });
   if (linkError) throw new Error(linkError.message);
+
+  await admin
+    .from("profiles")
+    .update({ is_active: false, invited_at: new Date().toISOString() })
+    .eq("id", userId);
 
   revalidatePath("/settings/team");
   return { link: linkData.properties?.action_link ?? null };

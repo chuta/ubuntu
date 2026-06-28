@@ -33,10 +33,11 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register");
 
-  // /auth/* (callback, set-password) must stay reachable without a prior
-  // session so invite + email-confirmation links can complete.
+  const isSetPassword = request.nextUrl.pathname === "/set-password";
+
+  // /auth/* and /set-password must stay reachable for invite onboarding.
   const isPublicPath =
-    isAuthPage || request.nextUrl.pathname.startsWith("/auth");
+    isAuthPage || request.nextUrl.pathname.startsWith("/auth") || isSetPassword;
 
   if (!user && !isPublicPath && request.nextUrl.pathname !== "/") {
     const url = request.nextUrl.clone();
@@ -48,6 +49,22 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // Invited users with a session but no password yet should finish on /set-password,
+  // not bounce to the dashboard inactive gate.
+  if (user && !isSetPassword && !isPublicPath && request.nextUrl.pathname !== "/") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("invited_at, is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.invited_at && !profile.is_active) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/set-password";
+      return NextResponse.redirect(url);
+    }
   }
 
   if (user && request.nextUrl.pathname === "/") {
