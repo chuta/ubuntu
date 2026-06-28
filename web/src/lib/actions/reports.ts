@@ -5,6 +5,7 @@ import { isOpenPipelineStage, weightedValue } from "@/lib/constants/deals";
 import { resolveDateRange } from "@/lib/constants/reports";
 import { getForecastSummary } from "@/lib/actions/forecasts";
 import { aggregateCommercialRisks } from "@/lib/commercial-risks/aggregate";
+import { aggregatePartnershipOperations } from "@/lib/partnerships/aggregate";
 import type { DealStage } from "@/types/pipeline";
 import type { B2cCampaignMetric, ExecutiveReportData } from "@/types/reports";
 import { SELECT } from "@/lib/supabase/embeds";
@@ -23,6 +24,9 @@ export async function getExecutiveReportData(params?: {
     dealsResult,
     govResult,
     partnershipsResult,
+    milestonesResult,
+    partnershipTasksResult,
+    partnershipDocsResult,
     tokenizationResult,
     eventsResult,
     leadsResult,
@@ -40,7 +44,22 @@ export async function getExecutiveReportData(params?: {
       .select(SELECT.organizationGovernment)
       .eq("organization_type", "GOVERNMENT")
       .is("deleted_at", null),
-    supabase.from("partnerships").select("id, status"),
+    supabase
+      .from("partnerships")
+      .select("id, name, status, partnership_type, end_date"),
+    supabase
+      .from("partnership_milestones")
+      .select(
+        "id, title, status, due_date, partnership_id, partnership:partnerships!partnership_milestones_partnership_id_fkey(id, name)"
+      ),
+    supabase
+      .from("tasks")
+      .select("id, title, status, due_date, partnership_id")
+      .not("partnership_id", "is", null),
+    supabase
+      .from("documents")
+      .select("id, status, partnership_id")
+      .not("partnership_id", "is", null),
     supabase.from("tokenization_projects").select("current_phase, estimated_asset_value, status"),
     supabase
       .from("events")
@@ -126,6 +145,12 @@ export async function getExecutiveReportData(params?: {
   }
 
   const partnerships = partnershipsResult.data ?? [];
+  const partnershipOperations = aggregatePartnershipOperations({
+    partnerships,
+    milestones: milestonesResult.data ?? [],
+    tasks: partnershipTasksResult.data ?? [],
+    documents: partnershipDocsResult.data ?? [],
+  });
   const tokenization = tokenizationResult.data ?? [];
   const byPhase: Record<string, { count: number; value: number }> = {};
   let tokenizationTotalValue = 0;
@@ -173,10 +198,7 @@ export async function getExecutiveReportData(params?: {
       byTerritory,
       byPriority,
     },
-    partnerships: {
-      activeCount: partnerships.filter((p) => p.status === "ACTIVE").length,
-      totalCount: partnerships.length,
-    },
+    partnerships: partnershipOperations,
     tokenization: {
       totalProjects: tokenization.filter((p) => p.status !== "COMPLETED").length,
       totalValue: tokenizationTotalValue,

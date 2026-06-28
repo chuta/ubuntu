@@ -13,6 +13,7 @@ import { B2G_PHASES, phaseLabel } from "@/lib/constants/tokenization";
 import { priorityVariant } from "@/components/ui/badge";
 import type { ExecutiveReportData } from "@/types/reports";
 import { CommercialRiskMonitor } from "@/components/reports/commercial-risk-monitor";
+import { PartnershipOperationsMonitor } from "@/components/reports/partnership-operations-monitor";
 import {
   GitBranch,
   Landmark,
@@ -36,7 +37,7 @@ export function ExecutiveDashboard({
     { label: "Active Deals", value: String(data.pipeline.activeDeals), icon: GitBranch, color: "text-brand-purple" },
     { label: "Flagged Deals", value: String(data.commercialRisks.flaggedDeals), icon: AlertTriangle, color: data.commercialRisks.flaggedDeals > 0 ? "text-amber-600" : "text-gray-400", href: "/pipeline?has_risk=1" },
     { label: "Gov Engagements", value: String(data.governments.activeCount), icon: Landmark, color: "text-brand-gold" },
-    { label: "Active Partnerships", value: String(data.partnerships.activeCount), icon: Handshake, color: "text-brand-purple" },
+    { label: "Active Partnerships", value: String(data.partnerships.activeCount), icon: Handshake, color: "text-brand-purple", href: "/partnerships?status=ACTIVE" },
     { label: "Tokenization Projects", value: String(data.tokenization.totalProjects), icon: Layers, color: "text-brand-gold" },
   ];
 
@@ -88,6 +89,8 @@ export function ExecutiveDashboard({
       </div>
 
       <CommercialRiskMonitor data={data.commercialRisks} />
+
+      <PartnershipOperationsMonitor data={data.partnerships} />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>

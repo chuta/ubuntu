@@ -1,3 +1,5 @@
+import type { PartnershipOperationsSummary } from "@/lib/partnerships/aggregate";
+
 export type DateRangePreset = "week" | "month" | "quarter" | "custom";
 
 export type ReportDateRange = {
@@ -35,7 +37,7 @@ export type ExecutiveReportData = {
     byTerritory: Record<string, number>;
     byPriority: Record<string, number>;
   };
-  partnerships: { activeCount: number; totalCount: number };
+  partnerships: PartnershipOperationsSummary;
   tokenization: {
     totalProjects: number;
     totalValue: number;
