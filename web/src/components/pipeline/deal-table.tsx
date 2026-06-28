@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge, priorityVariant } from "@/components/ui/badge";
 import { labelFor, DEAL_PRIORITIES, REVENUE_ENGINES, stageLabel, weightedValue } from "@/lib/constants/deals";
+import { qualificationScoreVariant } from "@/lib/constants/qualification";
 import { formatCurrency } from "@/lib/utils";
 import { CommercialRiskBadges } from "@/components/pipeline/deal-commercial-risks-panel";
 import type { Deal } from "@/types/pipeline";
@@ -28,6 +29,7 @@ export function DealTable({ deals }: { deals: Deal[] }) {
             <th className="px-4 py-3">Stage</th>
             <th className="px-4 py-3">Value</th>
             <th className="px-4 py-3">Weighted</th>
+            <th className="px-4 py-3">Fit</th>
             <th className="px-4 py-3">Engine</th>
             <th className="hidden px-4 py-3 md:table-cell">Risks</th>
             <th className="px-4 py-3">Close</th>
@@ -67,6 +69,13 @@ export function DealTable({ deals }: { deals: Deal[] }) {
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {weight > 0 ? formatCurrency(weight) : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  {deal.qual_score != null ? (
+                    <Badge variant={qualificationScoreVariant(deal.qual_score)}>{deal.qual_score}</Badge>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {labelFor(REVENUE_ENGINES, deal.revenue_engine)}

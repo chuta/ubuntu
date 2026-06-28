@@ -18,6 +18,7 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { DealDetailSummary } from "@/components/pipeline/deal-detail-summary";
 import { DealCommercialRisksPanel } from "@/components/pipeline/deal-commercial-risks-panel";
+import { DealQualificationPanel } from "@/components/pipeline/deal-qualification-panel";
 import { getCommercialRiskSuggestions } from "@/lib/actions/commercial-risks";
 import { ActivityPanel } from "@/components/pipeline/activity-panel";
 import { TaskPanel } from "@/components/pipeline/task-panel";
@@ -86,6 +87,7 @@ export default async function DealDetailPage({
 
         <div className="space-y-6">
           <DealDetailSummary deal={deal} />
+          <DealQualificationPanel deal={deal} />
           <DealCommercialRisksPanel deal={deal} suggestions={riskSuggestions} />
           <DealPartnershipPanel
             dealId={id}

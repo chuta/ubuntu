@@ -99,11 +99,26 @@ export type Deal = {
   commercial_risk_mitigation: string | null;
   commercial_risk_review_date: string | null;
   commercial_risk_updated_at: string | null;
+  qual_mutual_value: number | null;
+  qual_technical_fit: number | null;
+  qual_legal_complexity: number | null;
+  qual_cost_to_test: number | null;
+  qual_strategic_alignment: number | null;
+  qual_success_criteria: string | null;
+  qual_score: number | null;
+  qual_updated_at: string | null;
   created_at: string;
   updated_at: string;
   organization?: DealOrganization | null;
   product?: Product | null;
 };
+
+export type QualificationDimension =
+  | "qual_mutual_value"
+  | "qual_technical_fit"
+  | "qual_legal_complexity"
+  | "qual_cost_to_test"
+  | "qual_strategic_alignment";
 
 export type DealStageHistory = {
   id: string;

@@ -104,6 +104,14 @@ export function PipelineFilters() {
             <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </Select>
+        <Select
+          value={searchParams.get("sort") ?? ""}
+          onChange={(e) => update("sort", e.target.value)}
+          className="sm:w-44"
+        >
+          <option value="">Sort: Recent</option>
+          <option value="score">Sort: Fit score</option>
+        </Select>
       </div>
       <div className="flex gap-1 rounded-lg border border-gray-200 bg-white p-1">
         <Button

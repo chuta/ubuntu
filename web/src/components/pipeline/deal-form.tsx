@@ -20,6 +20,10 @@ import {
   CommercialRiskFields,
   parseCommercialRiskFormData,
 } from "@/components/pipeline/commercial-risk-fields";
+import {
+  QualificationFields,
+  parseQualificationFormData,
+} from "@/components/pipeline/qualification-fields";
 import { validateCommercialRiskInput } from "@/lib/constants/commercial-risks";
 import type { CommercialRiskType, Deal, Product } from "@/types/pipeline";
 
@@ -50,6 +54,7 @@ export function DealForm({
     const value = fd.get("estimated_value") as string;
     const prob = fd.get("probability") as string;
     const riskData = parseCommercialRiskFormData(fd);
+    const qualData = parseQualificationFormData(fd);
     const riskValidation = validateCommercialRiskInput(
       riskData.commercial_risk_flags,
       riskData.commercial_risk_severity ?? null,
@@ -77,6 +82,7 @@ export function DealForm({
       next_step_date: (fd.get("next_step_date") as string) || undefined,
       description: (fd.get("description") as string) || undefined,
       ...riskData,
+      ...qualData,
     };
 
     try {
@@ -202,6 +208,8 @@ export function DealForm({
           </FormField>
         </div>
       </section>
+
+      <QualificationFields deal={deal} />
 
       <CommercialRiskFields deal={deal} suggestions={riskSuggestions} />
 

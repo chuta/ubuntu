@@ -20,6 +20,7 @@ export default async function PipelinePage({
     has_risk?: string;
     risk_flag?: string;
     risk_severity?: string;
+    sort?: string;
   }>;
 }) {
   const profile = await getProfile();

@@ -15,6 +15,7 @@ import type {
   CommercialRiskSeverity,
 } from "@/types/pipeline";
 import { validateCommercialRiskInput } from "@/lib/constants/commercial-risks";
+import { computeQualificationScore } from "@/lib/constants/qualification";
 import { revalidatePath } from "next/cache";
 import { SELECT } from "@/lib/supabase/embeds";
 
@@ -38,6 +39,12 @@ export type DealFormData = {
   commercial_risk_notes?: string;
   commercial_risk_mitigation?: string;
   commercial_risk_review_date?: string;
+  qual_mutual_value?: number;
+  qual_technical_fit?: number;
+  qual_legal_complexity?: number;
+  qual_cost_to_test?: number;
+  qual_strategic_alignment?: number;
+  qual_success_criteria?: string;
 };
 
 export type DealFilters = {
@@ -48,7 +55,24 @@ export type DealFilters = {
   has_risk?: string;
   risk_flag?: string;
   risk_severity?: string;
+  sort?: string;
 };
+
+function buildQualificationFields(data: DealFormData) {
+  const dimensions = {
+    qual_mutual_value: data.qual_mutual_value ?? null,
+    qual_technical_fit: data.qual_technical_fit ?? null,
+    qual_legal_complexity: data.qual_legal_complexity ?? null,
+    qual_cost_to_test: data.qual_cost_to_test ?? null,
+    qual_strategic_alignment: data.qual_strategic_alignment ?? null,
+  };
+  return {
+    ...dimensions,
+    qual_success_criteria: data.qual_success_criteria || null,
+    qual_score: computeQualificationScore(dimensions),
+    qual_updated_at: new Date().toISOString(),
+  };
+}
 
 function buildCommercialRiskFields(
   data: Pick<
@@ -113,11 +137,13 @@ function normalizeDeal(deal: Deal): Deal {
 export async function getDeals(filters?: DealFilters): Promise<Deal[]> {
   const supabase = await createClient();
 
-  let query = supabase
-    .from("deals")
-    .select(SELECT.deal)
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false });
+  let query = supabase.from("deals").select(SELECT.deal).is("deleted_at", null);
+
+  if (filters?.sort === "score") {
+    query = query.order("qual_score", { ascending: false, nullsFirst: false });
+  } else {
+    query = query.order("updated_at", { ascending: false });
+  }
 
   if (filters?.stage) query = query.eq("stage", filters.stage);
   if (filters?.segment) query = query.eq("segment", filters.segment);
@@ -240,6 +266,7 @@ export async function createDeal(data: DealFormData) {
       commercial_risk_updated_at: riskFields.commercial_risk_flags.length
         ? new Date().toISOString()
         : null,
+      ...buildQualificationFields(data),
     })
     .select("id, stage")
     .single();
@@ -282,6 +309,7 @@ export async function updateDeal(id: string, data: DealFormData) {
     next_step_date: data.next_step_date || null,
     description: data.description || null,
     ...riskFields,
+    ...buildQualificationFields(data),
   };
 
   if (riskChanged) {

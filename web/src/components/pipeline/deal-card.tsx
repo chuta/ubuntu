@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge, priorityVariant } from "@/components/ui/badge";
 import { labelFor, DEAL_PRIORITIES, weightedValue } from "@/lib/constants/deals";
+import { qualificationScoreVariant } from "@/lib/constants/qualification";
 import { formatCurrency } from "@/lib/utils";
 import { Building2, GripVertical } from "lucide-react";
 import type { Deal } from "@/types/pipeline";
@@ -33,11 +34,18 @@ export function DealCard({ deal, draggable }: { deal: Deal; draggable?: boolean 
       {weight > 0 && (
         <p className="mt-0.5 text-xs text-gray-400">Weighted {formatCurrency(weight)}</p>
       )}
-      {deal.priority && (
-        <div className="mt-2">
-          <Badge variant={priorityVariant(deal.priority)}>
-            {labelFor(DEAL_PRIORITIES, deal.priority)}
-          </Badge>
+      {(deal.priority || deal.qual_score != null) && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {deal.priority && (
+            <Badge variant={priorityVariant(deal.priority)}>
+              {labelFor(DEAL_PRIORITIES, deal.priority)}
+            </Badge>
+          )}
+          {deal.qual_score != null && (
+            <Badge variant={qualificationScoreVariant(deal.qual_score)}>
+              Fit {deal.qual_score}
+            </Badge>
+          )}
         </div>
       )}
       <div className="mt-2">
